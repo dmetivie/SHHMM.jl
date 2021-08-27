@@ -10,10 +10,11 @@ function lagou(hmm::PeriodicHMM; kwargs...)
     lagou(hmm, T; kwargs...)
 end
 
-function lagou(mix::Array{MixtureModel{Univariate, Continuous, Distribution{Univariate, Continuous}, Float64}, 3}; kwargs...)
-    T = size(mix, 2)
-    lagou(mix, T; kwargs...)
-end
+#! ERROR: LoadError: LoadError: TypeError: in MixtureModel, in CT, expected CT<:(Distributions.Categorical{P, Ps} where {P<:Real, Ps<:AbstractVector{P}}), got Type{Float64}
+# function lagou(mix::Array{MixtureModel{Univariate, Continuous, Distribution{Univariate, Continuous}, Float64}, 3}; kwargs...)
+#     T = size(mix, 2)
+#     lagou(mix, T; kwargs...)
+# end
 
 function lagou(hmm::HierarchicalPeriodicHMM; kwargs...)
     T = size(hmm.A, 3)

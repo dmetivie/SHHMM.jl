@@ -1,2 +1,3 @@
 # SHHMM.jl
-SHHMM
+
+SHHMM an extansion
