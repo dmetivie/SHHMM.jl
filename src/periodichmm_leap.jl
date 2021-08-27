@@ -68,7 +68,7 @@ function rand(rng::AbstractRNG, hmm::PeriodicHMM{Univariate}, n2t::AbstractArray
     for n in eachindex(z)
         t = n2t[n] # periodic t
         p = yesterday.(params.(hmm.B[z[n],t].v),y[n-1])
-        y[n] = rand(Product(Bernoulli.(p)))
+        y[n] = rand(rng, Product(Bernoulli.(p)))
     end
     y
 end
@@ -105,7 +105,7 @@ function rand(
     for n in eachindex(z)[N_ini+1:end]
         t = n2t[n] # periodic t
         p = yesterday.(params.(hmm.B[z[n],t].v),y[n-1,:])
-        y[n, :] = rand(Product(Bernoulli.(p)))
+        y[n, :] = rand(rng, Product(Bernoulli.(p)))
     end
     y
 end

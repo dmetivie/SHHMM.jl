@@ -5,6 +5,10 @@ Extansion of the [HMMBase](https://maxmouchet.github.io/HMMBase.jl/stable/) pack
 """
 module SHHMM
 
+using Distributed, SharedArrays
+
+@everywhere using JuMP, Ipopt
+
 using ArgCheck
 using Clustering
 using Distributions
@@ -18,7 +22,7 @@ using Random: AbstractRNG, GLOBAL_RNG
 using ShiftedArrays: lag, lead
 using StatsFuns: logsumexp
 using StatsBase: Weights
-using JuMP, Ipopt, LsqFit
+using LsqFit
 using SpecialFunctions
 # Extended functions
 import Base: ==, copy, rand, size
@@ -82,6 +86,8 @@ include("periodichmm_leap.jl")
 include("periodichmm_leap_hierarchical.jl")
 include("fit_mle_slice.jl")
 include("parametric_BW.jl") 
+include("parametric_BW_distributed.jl") 
+
 include("aux_func.jl")
 include("mixture.jl")
 
