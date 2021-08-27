@@ -244,7 +244,7 @@ function fit_Q!(p::AbstractArray, A::AbstractArray{N,2} where N; silence = true)
     cos_nj = [cos(f*j*t) for t in 1:T, j in 1:d]
     sin_nj = [sin(f*j*t) for t in 1:T, j in 1:d]
 
-    trig = [[1; HMMBase.interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
+    trig = [[1; interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
 
     @variable(model, p_jump[k = 1:(K-1), j = 1:(2d+1)])
     set_start_value.(p_jump, p)
@@ -277,7 +277,7 @@ end
 #     cos_nj = [cos(f*j*t) for t in 1:T, j in 1:d]
 #     sin_nj = [sin(f*j*t) for t in 1:T, j in 1:d]
 
-#     trig = [[1; HMMBase.interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
+#     trig = [[1; interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
 
 #     @variable(model, p_jump[j = 1:(2d+1)])
 #     set_start_value.(p_jump, p)
@@ -303,7 +303,7 @@ end
 #     cos_nj = [cos(f*j*t) for t in 1:T, j in 1:d]
 #     sin_nj = [sin(f*j*t) for t in 1:T, j in 1:d]
 
-#     trig = [[1; HMMBase.interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
+#     trig = [[1; interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
 
 #     @variable(model, p_jump[j = 1:(2d+1)])
 #     set_start_value.(p_jump, p)
