@@ -31,7 +31,13 @@ function update_B_d!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} w
     for n in 1:N, k in 1:K
         set_value(πk[n,k], γ[n,k]) 
     end    
-    pmap(tup -> fit_mle_one_B_distributed!(@view(θ_Y[tup...,:]), model_B, mles[tup...]), Iterators.product(1:K, 1:D, 1:size_memory))
+    
+    # TODO In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
+    # pmap(tup -> fit_mle_one_B_distributed!(@view(θ_Y[tup...,:]), model_B, mles[tup...]), Iterators.product(1:K, 1:D, 1:size_memory))
+    θ_res = pmap(tup -> fit_mle_one_B_distributed(θ_Y[tup...,:], model_B, mles[tup...]), Iterators.product(1:K, 1:D, 1:size_memory))
+    for (k, s, h) in Iterators.product(1:K, 1:D, 1:size_memory)
+         θ_Y[k,s,h,:] = θ_res[k,s,h] 
+    end
 
     p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
     B[:,:,:,:] = Bernoulli.(p)
@@ -47,6 +53,18 @@ function fit_mle_one_B_distributed!(θ_Y, model_B, mle; warm_start = true)
     )
     optimize!(model_B)
     θ_Y[:] = value.(θ_jump)
+end
+
+function fit_mle_one_B_distributed(θ_Y, model_B, mle; warm_start = true)
+    θ_jump = model_B[:θ_jump]
+    warm_start && set_start_value.(θ_jump, θ_Y[:])
+    # set_silent(model_B)
+    @NLobjective(
+    model_B, Max,
+    mle
+    )
+    optimize!(model_B)
+    value.(θ_jump)
 end
 
 # @everywhere function fit_mle_B_trig!(θ_Y::AbstractVector, model::Model, γ::AbstractVector)
@@ -99,7 +117,8 @@ function fit_mle_d!(
     N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm,4), size(hmm,2)
     
     #SharedArray
-    θ_Y = convert(SharedArray, θ_Y)
+    # TODO In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
+    # θ_Y = convert(SharedArray, θ_Y)
 
     deg_Q = (size(θ_Q, 3)-1)÷2
     deg_Y = (size(θ_Y, 4)-1)÷2
@@ -161,7 +180,7 @@ function fit_mle_d!(
         posteriors!(γ, α, β)
 
         logtotp = sum(c)
-        (display == :iter) && println("Iteration $it: logtot = $logtotp")
+        (display == :iter) && println(now(), " Iteration $it: logtot = $logtotp")
 
         push!(history.logtots, logtotp)
         history.iterations += 1

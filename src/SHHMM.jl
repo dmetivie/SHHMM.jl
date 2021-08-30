@@ -5,7 +5,8 @@ Extansion of the [HMMBase](https://maxmouchet.github.io/HMMBase.jl/stable/) pack
 """
 module SHHMM
 
-using Distributed, SharedArrays
+# TODO In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
+using Distributed #, SharedArrays
 
 using JuMP, Ipopt
 
