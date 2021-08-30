@@ -26,6 +26,7 @@ using StatsBase: Weights
 using LsqFit
 using SpecialFunctions
 # Extended functions
+import Dates.now
 import Base: ==, copy, rand, size
 import Distributions: MixtureModel, fit_mle, loglikelihood
 
