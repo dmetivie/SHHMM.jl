@@ -16,6 +16,7 @@ using Distributions
 # using Hungarian
 using LinearAlgebra
 using CyclicArrays # Should be removed in future versions to avoid extra dependency?
+using ProgressMeter
 
 using CyclicArrays: CyclicArray
 using Base: OneTo

@@ -57,7 +57,7 @@ function fit_mle_all_slices(hmm::HierarchicalPeriodicHMM, observations, n2t::Abs
 
 	α = hcat([vec(sum(hmm.A[:,:,t], dims=1)/K) for t in 1:T]...)
 	n_in_t = [findall(n2t .== t) for t in 1:T] #
-	hist = Vector{HMMBase.EMHistory}(undef,T)
+	hist = Vector{SHHMM.EMHistory}(undef,T)
 	cycle = CyclicArray(1:T, "1D")
 	for t in 1:T
 		n_in_t_extanded = sort(vcat([n_in_t[tt] for tt in cycle[[t-12,t-7,t,t+6,t+13]]]...)) # extend dataset

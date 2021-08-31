@@ -38,7 +38,6 @@ function update_A!(
     pklj_jump = model_A[:pklj_jump]
     πkl = model_A[:πkl]
     πk = model_A[:πk]
-    Pkl = model_A[:Pkl]
 
     for k in 1:K
         ## Update the smoothing parameters in the JuMP model
@@ -58,7 +57,6 @@ function update_A!(
 end
 
 function fit_mle_B_trig1!(θ_Y, γ, k, s, h, model_B; warm_start = true)
-    N = size(γ, 1)
     θ_jump = model_B[:θ_jump]
     mle = model_B[:mle][k,s,h]
     warm_start && set_start_value.(θ_jump, θ_Y[k,s,h,:])
