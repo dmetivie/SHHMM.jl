@@ -208,7 +208,7 @@ function fit_mle_d!(
 
     for it = 1:maxiter
         update_a!(hmm.a, α, β)
-        update_A_d!(hmm.A, θ_Q, ξ, α, β, LL, n2t, model_A; warm_start = warm_start)
+        update_A!(hmm.A, θ_Q, ξ, α, β, LL, n2t, model_A; warm_start = warm_start)
         update_B_d!(hmm.B, θ_Y, γ, observations, model_B, mles; warm_start = warm_start)
         # Ensure the "connected-ness" of the states,
         # this prevents case where there is no transitions
@@ -233,7 +233,7 @@ function fit_mle_d!(
         logtotp = sum(c)
         (display == :iter) && println(now(), " Iteration $it: logtot = $logtotp") 
         flush(stdout)
-        
+
         push!(history.logtots, logtotp)
         history.iterations += 1
 
