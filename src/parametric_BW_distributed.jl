@@ -14,27 +14,17 @@ function update_B_d!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} w
     end    
     
     # TODO In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
-    # pmap(tup -> fit_mle_one_B_distributed!(@view(θ_Y[tup...,:]), model_B, mles[tup...]), Iterators.product(1:K, 1:D, 1:size_memory))
 
-    @showprogress pmap(Iterators.product(1:K, 1:D, 1:size_memory)) do tup
-        sleep(0.5)
-        θ_Y[tup..., :] = fit_mle_one_B_distributed(θ_Y[tup...,:], model_B, mles[tup...], warm_start = warm_start)
-    end
-    # map(Iterators.product(1:K, 1:D, 1:size_memory)) do tup
+    # @showprogress pmap(Iterators.product(1:K, 1:D, 1:size_memory)) do tup
     #     sleep(0.5)
-    #     @show tup
-    #     # if tup == (6,6,1)
-    #     #     unset_silent(model_B)
-    #     # else
-    #     #     set_silent(model_B)
-    #     # end
     #     θ_Y[tup..., :] = fit_mle_one_B_distributed(θ_Y[tup...,:], model_B, mles[tup...], warm_start = warm_start)
     # end
-    # θ_res = pmap(tup -> fit_mle_one_B_distributed(θ_Y[tup...,:], model_B, mles[tup...]), Iterators.product(1:K, 1:D, 1:size_memory))
+
+    θ_res = pmap(tup -> fit_mle_one_B_distributed(θ_Y[tup...,:], model_B, mles[tup...]; warm_start = warm_start), Iterators.product(1:K, 1:D, 1:size_memory))
     
-    # for (k, s, h) in Iterators.product(1:K, 1:D, 1:size_memory)
-    #      θ_Y[k,s,h,:] = θ_res[k,s,h] 
-    # end
+    for (k, s, h) in Iterators.product(1:K, 1:D, 1:size_memory)
+         θ_Y[k,s,h,:] = θ_res[k,s,h] 
+    end
 
     p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
     B[:,:,:,:] = Bernoulli.(p)
@@ -122,10 +112,14 @@ function update_A_d!(
         end
     end
     # ξ are the filtering probablies
-
-    @showprogress pmap(1:K) do k
-        sleep(0.5)
-        θ_Q[k,:,:] = fit_mle_one_A_distributed(θ_Q[k, :, :], model_A, ξ[:, k, :]; warm_start = warm_start)
+    # @showprogress pmap(1:K) do k
+    #     sleep(0.5)
+    #     θ_Q[k,:,:] = fit_mle_one_A_distributed(θ_Q[k, :, :], model_A, ξ[:, k, :]; warm_start = warm_start)
+    # end
+    θ_res = pmap(k -> fit_mle_one_A_distributed(θ_Q[k, :, :], model_A, ξ[:, k, :]; warm_start = warm_start), 1:K)
+    
+    for k in 1:K
+        θ_Q[k,:,:] = θ_res[k][:,:] 
     end
 
     [A[k,l,t] = exp(polynomial_trigo(t, θ_Q[k,l,:], T = T)) for k in 1:K, l in 1:K-1, t in 1:T]
@@ -208,7 +202,7 @@ function fit_mle_d!(
 
     for it = 1:maxiter
         update_a!(hmm.a, α, β)
-        update_A!(hmm.A, θ_Q, ξ, α, β, LL, n2t, model_A; warm_start = warm_start)
+        update_A_d!(hmm.A, θ_Q, ξ, α, β, LL, n2t, model_A; warm_start = warm_start)
         update_B_d!(hmm.B, θ_Y, γ, observations, model_B, mles; warm_start = warm_start)
         # Ensure the "connected-ness" of the states,
         # this prevents case where there is no transitions
