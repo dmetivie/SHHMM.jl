@@ -249,13 +249,13 @@ function model_for_B(γ::AbstractMatrix, n2t, n_occurence_history, d::Int, T::In
     K = size(γ, 2)
     N = length(n2t)
     model = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(model, "max_cpu_time", 60.0)
     silence && set_silent(model)
     f = 2π/T
     cos_nj = [cos(f*j*n2t[n]) for n in 1:N, j in 1:d]
     sin_nj = [sin(f*j*n2t[n]) for n in 1:N, j in 1:d]
 
     trig = [[1; interleave2(cos_nj[n,:], sin_nj[n,:])] for n in 1:N]
-
     @variable(model, θ_jump[j = 1:(2d+1)])
     # Polynomial P
     @NLexpression(model, Pn[n = 1:N], sum(trig[n][j] * θ_jump[j] for j in 1:length(trig[n])))

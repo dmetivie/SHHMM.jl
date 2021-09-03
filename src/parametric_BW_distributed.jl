@@ -34,7 +34,6 @@ function fit_mle_one_B_distributed!(θ_Y, model_B, mle; warm_start = true)
     θ_jump = model_B[:θ_jump]
     warm_start && set_start_value.(θ_jump, θ_Y[:])
     # set_silent(model_B)
-    set_time_limit_sec(model_B, 60.0)
     set_optimizer_attribute(model_B, "max_iter", 60)
     @NLobjective(
     model_B, Max,
@@ -47,7 +46,6 @@ end
 function fit_mle_one_B_distributed(θ_Y, model_B, mle; warm_start = true)
     θ_jump = model_B[:θ_jump]
     warm_start && set_start_value.(θ_jump, θ_Y[:])
-    # set_silent(model_B)
     @NLobjective(
     model_B, Max,
     mle
