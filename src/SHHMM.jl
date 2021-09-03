@@ -5,27 +5,23 @@ Extansion of the [HMMBase](https://maxmouchet.github.io/HMMBase.jl/stable/) pack
 """
 module SHHMM
 
-# TODO In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
-using Distributed #, SharedArrays
-
-using JuMP, Ipopt
-
+# TODO? In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
+using Distributed 
 using ArgCheck
 using Clustering
 using Distributions
-# using Hungarian
 using LinearAlgebra
-using CyclicArrays # Should be removed in future versions to avoid extra dependency?
-using ProgressMeter
-
-using CyclicArrays: CyclicArray
-using Base: OneTo
-using Random: AbstractRNG, GLOBAL_RNG
-using ShiftedArrays: lag, lead
-using StatsFuns: logsumexp
-using StatsBase: Weights
+using JuMP, Ipopt
 using LsqFit
 using SpecialFunctions
+
+using Base: OneTo
+using Random: AbstractRNG, GLOBAL_RNG
+using StatsFuns: logsumexp
+using StatsBase: Weights
+using ShiftedArrays: lag, lead
+using CyclicArrays: CyclicArray
+
 # Extended functions
 import Dates.now
 import Base: ==, copy, rand, size
