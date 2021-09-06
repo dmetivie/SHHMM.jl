@@ -8,27 +8,26 @@ module SHHMM
 # TODO? In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
 using Distributed 
 using ArgCheck
-using Clustering
 using Distributions
 using LinearAlgebra
-using JuMP, Ipopt
+using JuMP
+using Ipopt
 using LsqFit
 using SpecialFunctions
-
 using Base: OneTo
 using Random: AbstractRNG, GLOBAL_RNG
 using StatsFuns: logsumexp
 using StatsBase: Weights
 using ShiftedArrays: lag, lead
 using CyclicArrays: CyclicArray
+using Dates: now
 
 # Extended functions
-import Dates.now
 import Base: ==, copy, rand, size
 import Distributions: MixtureModel, fit_mle, loglikelihood
 
 export
-    # hmm.jl
+    # shhmm.jl
     AbstractHMM,
     HMM,
     copy,
@@ -84,7 +83,7 @@ include("periodichmm.jl")
 include("periodichmm_leap.jl")
 include("periodichmm_leap_hierarchical.jl")
 include("fit_mle_slice.jl")
-include("parametric_BW.jl") 
+# include("parametric_BW.jl") 
 include("parametric_BW_distributed.jl") 
 
 include("aux_func.jl")

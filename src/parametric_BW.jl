@@ -96,45 +96,6 @@ function fit_mle_B_trig!(θ_Y::AbstractVector, model::Model, γ::AbstractVector;
     θ_Y[:] = value.(θ_jump)
 end
 
-function update_B2!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} where N, γ::AbstractMatrix, observations, model_B; warm_start = true)
-    @argcheck size(γ, 1) == size(observations, 1)
-    @argcheck size(γ, 2) == size(B, 1)
-    K = size(B, 1)
-    T = size(B, 2)
-    D = size(B, 3)
-    size_memory = size(B, 4)
-    ## For periodicHMM only the n observations corresponding to B(t) are used to update B(t)
-    for k in 1:K, s in 1:D, h in 1:size_memory
-        fit_mle_B_trig!(@view(θ_Y[k,s,h,:]), model_B[s,h], γ[:,k]; warm_start = warm_start)
-    end
-    p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
-    B[:,:,:,:] = Bernoulli.(p)
-end
-function update_B1!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} where N, γ::AbstractMatrix, observations, model_B::Model; warm_start = true)
-    @argcheck size(γ, 1) == size(observations, 1)
-    @argcheck size(γ, 2) == size(B, 1)
-    N = size(γ, 1)
-    K = size(B, 1)
-    T = size(B, 2)
-    D = size(B, 3)
-    size_memory = size(B, 4)
-    ## For periodicHMM only the n observations corresponding to B(t) are used to update B(t)
-    θ_jump = model_B[:θ_jump]
-    πk = model_B[:πk]
-    Pn = model_B[:Pn]
-    mle = model_B[:mle]
-    ## Update the smoothing parameters in the JuMP model
-    for n in 1:N, k in 1:K
-        set_value(πk[n,k], γ[n,k]) 
-    end    
-    mles = model_B[:mle]
-    for k in 1:K, s in 1:D, h in 1:size_memory
-        fit_mle_B_trig01!(@view(θ_Y[k,s,h,:]), model_B, mles[k,s,h]; warm_start = true)
-    end
-    p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
-    B[:,:,:,:] = Bernoulli.(p)
-end
-
 function update_B!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} where N, γ::AbstractMatrix, observations, model_B::Model, mles; warm_start = true)
     @argcheck size(γ, 1) == size(observations, 1)
     @argcheck size(γ, 2) == size(B, 1)
@@ -195,56 +156,6 @@ function model_for_A(ξ::AbstractArray, n2t::AbstractArray{Int}, d::Int, T::Int;
     return model
 end
 
-function model_for_B3(γ::AbstractVector, n2t, n_occurence_history, d::Int, T::Int, D::Int, size_memory::Int; silence = true)
-    N = length(n2t)
-    model = Model(Ipopt.Optimizer)
-    silence && set_silent(model)
-    f = 2π/T
-    cos_nj = [cos(f*j*n2t[n]) for n in 1:N, j in 1:d]
-    sin_nj = [sin(f*j*n2t[n]) for n in 1:N, j in 1:d]
-
-    trig = [[1; interleave2(cos_nj[n,:], sin_nj[n,:])] for n in 1:N]
-
-    @variable(model, θ_jump[j = 1:(2d+1)])
-    # Polynomial P
-    @NLexpression(model, Pn[n = 1:N], sum(trig[n][j] * θ_jump[j] for j in 1:length(trig[n])))
-
-    @NLparameter(model, πk[n = 1:N] == γ[n])
-
-    @NLobjective(model, Max,
-    - sum(πk[n]*log1p(exp(-Pn[n])) for n in n_occurence_history[1]) - sum(πk[n]*log1p(exp(Pn[n])) for n in n_occurence_history[2])
-    ) # 1 is where it did not rain # 2 where it rained
-
-    # I don't know if it is the best to add NL parameters but https://discourse.julialang.org/t/jump-updating-nlparameter-of-a-model-in-a-loop/35081/3
-    model[:πk] = πk
-    return model
-end
-function model_for_B2(γ::AbstractVector, n2t, n_occurence_history, d::Int, T::Int, D::Int, size_memory::Int; silence = true)
-    N = length(n2t)
-    model = Model(Ipopt.Optimizer)
-    silence && set_silent(model)
-    f = 2π/T
-    cos_nj = [cos(f*j*n2t[n]) for n in 1:N, j in 1:d]
-    sin_nj = [sin(f*j*n2t[n]) for n in 1:N, j in 1:d]
-
-    trig = [[1; interleave2(cos_nj[n,:], sin_nj[n,:])] for n in 1:N]
-
-    @variable(model, θ_jump[j = 1:(2d+1)])
-    # Polynomial P
-    @NLexpression(model, Pn[n = 1:N], sum(trig[n][j] * θ_jump[j] for j in 1:length(trig[n])))
-
-    @NLparameter(model, πk[n = 1:N] == γ[n])
-
-    @NLexpression(model, mle,
-    - sum(πk[n]*log1p(exp(-Pn[n])) for n in n_occurence_history[1]) - sum(πk[n]*log1p(exp(Pn[n])) for n in n_occurence_history[2])
-    ) # 1 is where it did not rain # 2 where it rained
-    @NLobjective(model, Max,
-        mle
-    )
-    # I don't know if it is the best to add NL parameters but https://discourse.julialang.org/t/jump-updating-nlparameter-of-a-model-in-a-loop/35081/3
-    model[:πk] = πk
-    return model
-end
 function model_for_B(γ::AbstractMatrix, n2t, n_occurence_history, d::Int, T::Int, D::Int, size_memory::Int; silence = true)
     K = size(γ, 2)
     N = length(n2t)
@@ -263,7 +174,7 @@ function model_for_B(γ::AbstractMatrix, n2t, n_occurence_history, d::Int, T::In
     @NLparameter(model, πk[n = 1:N, k = 1:K] == γ[n, k])
 
     @NLexpression(model, mle[k = 1:K, s = 1:D, h = 1:size_memory],
-    - sum(πk[n,k]*log1p(exp(-Pn[n])) for n in n_occurence_history[s,h,1]) - sum(πk[n,k]*log1p(exp(Pn[n])) for n in  n_occurence_history[s,h,2])
+    - sum(πk[n,k]*log1p(exp(-Pn[n])) for n in n_occurence_history[s,h,1]) - sum(πk[n,k]*log1p(exp(Pn[n])) for n in n_occurence_history[s,h,2])
     ) # 1 is where it did not rain # 2 where it rained
 
     # I don't know if it is the best but https://discourse.julialang.org/t/jump-updating-nlparameter-of-a-model-in-a-loop/35081/3
@@ -271,7 +182,6 @@ function model_for_B(γ::AbstractMatrix, n2t, n_occurence_history, d::Int, T::In
     model[:mle] = mle
     return model
 end
-
 
 function fit_mle2(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int},
     θ_Q::AbstractArray{TQ, 3} where TQ,

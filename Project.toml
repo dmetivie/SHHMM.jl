@@ -1,18 +1,20 @@
 name = "SHHMM"
 uuid = "f3b2a854-4dd1-4233-835f-68911d6ce323"
-authors = ["dmetivie <46794064+dmetivie@users.noreply.github.com>"]
-version = "0.1.0"
+authors = ["David Métivier <david.metivier@polytechnique.edu>"]
+version = "0.2.0"
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
-Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-Hungarian = "e91730f6-4275-51fb-a7a0-7064cfbd3b39"
 Ipopt = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
-SharedArrays = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
-SlurmClusterManager = "c82cd089-7bf7-41d7-976b-6b5d413cbe0a"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+ShiftedArrays = "1277b4bf-5013-50f5-be3d-901d8477a67a"
+CyclicArrays = "7a955b69-7140-5f4e-a0ed-f168c5e2e749"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
