@@ -5,8 +5,8 @@ Extansion of the [HMMBase](https://maxmouchet.github.io/HMMBase.jl/stable/) pack
 """
 module SHHMM
 
-# TODO? In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
-using Distributed 
+# TODO!  Package SHHMM does not have CyclicArrays in its dependencies
+using Distributed
 using ArgCheck
 using Distributions
 using LinearAlgebra
@@ -84,7 +84,7 @@ include("periodichmm_leap.jl")
 include("periodichmm_leap_hierarchical.jl")
 include("fit_mle_slice.jl")
 # include("parametric_BW.jl") 
-include("parametric_BW_distributed.jl") 
+include("parametric_BW_distributed.jl")
 
 include("aux_func.jl")
 include("mixture.jl")

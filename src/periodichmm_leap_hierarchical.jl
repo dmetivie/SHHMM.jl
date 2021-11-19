@@ -32,6 +32,70 @@ size(hmm::HierarchicalPeriodicHMM, dim = :) = (size(hmm.B, 1), size(hmm.B,3), si
                                               # K, D, T, size_memory
 copy(hmm::HierarchicalPeriodicHMM) = HierarchicalPeriodicHMM(copy(hmm.a), copy(hmm.A), copy(hmm.B))
 
+function rand_test(
+    rng::AbstractRNG,
+    hmm::HierarchicalPeriodicHMM,
+    n2t::AbstractArray{Int},
+    useless;
+    init = rand(rng, Categorical(hmm.a)),
+    seq = false,
+    kwargs...
+)
+    T = size(hmm.B, 2)
+    N = length(n2t)
+
+    z = Vector{Int}(undef, N)
+    (T >= 1) && (z[1] = init)
+    for n = 2:N
+        tm1 = n2t[n-1] # periodic t-1
+        z[n] = rand(rng, Categorical(hmm.A[z[n-1],:,tm1]))
+    end
+    y = rand(rng, hmm, n2t, z, useless; kwargs...)
+    seq ? (z, y) : y
+end
+
+function rand_test(
+    rng::AbstractRNG,
+    hmm::HierarchicalPeriodicHMM,
+    n2t::AbstractArray{Int},
+    z::AbstractVector{<:Integer},
+    yini;
+    size_memory = size(hmm, 4)
+)
+    T = size(hmm, 2)
+    max_size_memory = maximum(size_memory)
+    y = Matrix{Bool}(undef, length(z), T)
+    memory = Int.(log.(size_memory)/log(2))
+    D = size(y, 2)
+
+    @argcheck D == size(hmm, 2)
+    @argcheck length(n2t) == length(z)
+
+    p = zeros(D)
+    for j in 1:D
+        if memory[j] > 0
+            # One could do some specialized for each value of memory e.g. for memory = 1, we have simply previous_day_cat = y[n-1,:].+1
+            N_ini = length(yini[1:memory[j],j])
+            y[1:N_ini,j] = yini[1:memory[j],j]
+
+            for n in eachindex(z)[N_ini+1:end]
+                t = n2t[n] # periodic t
+                previous_day_cat = bin2digit([y[n-m,j] for m in 1:memory[j]])
+
+                p = succprob(hmm.B[z[n], t, j, previous_day_cat])
+                y[n, j] = rand(Bernoulli(p))
+            end
+        else
+            for n in eachindex(z)[1:end]
+                t = n2t[n] # periodic t
+                p = succprob(hmm.B[z[n], t, j, 1])
+                y[n, j] = rand(Bernoulli(p))
+            end
+        end
+    end
+    y
+end
+
 function rand(
     rng::AbstractRNG,
     hmm::HierarchicalPeriodicHMM,
@@ -95,6 +159,10 @@ end
 rand(hmm::HierarchicalPeriodicHMM, n2t::AbstractArray{Int}, useless; kwargs...) = rand(GLOBAL_RNG, hmm, n2t, useless; kwargs...)
 
 rand(hmm::HierarchicalPeriodicHMM, n2t::AbstractArray{Int}, z::AbstractVector{<:Integer}, useless; kwargs...) = rand(GLOBAL_RNG, hmm, n2t, z, useless; kwargs...)
+
+rand_test(hmm::HierarchicalPeriodicHMM, n2t::AbstractArray{Int}, useless; kwargs...) = rand(GLOBAL_RNG, hmm, n2t, useless; kwargs...)
+
+rand_test(hmm::HierarchicalPeriodicHMM, n2t::AbstractArray{Int}, z::AbstractVector{<:Integer}, useless; kwargs...) = rand(GLOBAL_RNG, hmm, n2t, z, useless; kwargs...)
 
 function likelihoods!(L::AbstractMatrix, hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}, lag_cat::Matrix{Int})
     N, K, T, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm,2)

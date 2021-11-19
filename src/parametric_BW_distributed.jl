@@ -208,31 +208,32 @@ function fit_mle!(
     hmm::HierarchicalPeriodicHMM,
     observations::AbstractArray,
     n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}
     ;
     display = :none,
     maxiter = 100,
     tol = 1e-3,
     robust = false,
     silence = true,
-    warm_start = true
+    warm_start = true,
+    past = [0 1 0 1 1 0 1 0 0 0
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1]
 )
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0
 
-    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm,4), size(hmm,2)
-    
-    #SharedArray
-    # TODO In place version (the SharedArray thing does not really work with Slurm on a cluster because threads do not necessarly have shared memory)
-    # θ_Y = convert(SharedArray, θ_Y)
+    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm, 4), size(hmm, 2)
 
-    deg_Q = (size(θ_Q, 3)-1)÷2
-    deg_Y = (size(θ_Y, 4)-1)÷2
+    deg_Q = (size(θ_Q, 3) - 1) ÷ 2
+    deg_Y = (size(θ_Y, 4) - 1) ÷ 2
     rain_cat = 2
     @argcheck T == size(hmm.B, 2)
     history = EMHistory(false, 0, [])
-    
+
     all_θ_Q = [copy(θ_Q)]
     all_θ_Y = [copy(θ_Y)]
     # Allocate memory for in-place updates
@@ -246,26 +247,26 @@ function fit_mle!(
     LL = zeros(N, K)
 
     # assign category for observation depending in the past observations
-    memory = Int(log(size_memory)/log(2))
-    lag_cat = conditional_to(observations, memory)
+    memory = Int(log(size_memory) / log(2))
+    lag_cat = conditional_to(observations, memory; past = past)
 
-    n_in_t = [findall(n2t .== t) for t in 1:T]
-    n_occurence_history = [findall(.&(observations[:,j] .== y, lag_cat[:,j] .== h)) for j in 1:D, h in 1:size_memory, y in 0:1]
+    n_in_t = [findall(n2t .== t) for t = 1:T]
+    n_occurence_history = [findall(.&(observations[:, j] .== y, lag_cat[:, j] .== h)) for j = 1:D, h = 1:size_memory, y = 0:1]
     n_all = [n_per_category(tup..., n_in_t, n_occurence_history) for tup in Iterators.product(1:D, 1:size_memory, 1:T, 1:rain_cat)]
 
-    model_A = model_for_A_d(s_ξ[:,1,:], deg_Q, silence = silence) # JuMP Model for transition matrix
+    model_A = model_for_A_d(s_ξ[:, 1, :], deg_Q, silence = silence) # JuMP Model for transition matrix
     model_B = model_for_B_d(γ_s[1, 1, 1, :, :], deg_Y, silence = silence) # JuMP Model for Emmission distribution
-    
+
     loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
     robust && replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
-    
+
     forwardlog!(α, c, hmm.a, hmm.A, LL, n2t)
     backwardlog!(β, c, hmm.a, hmm.A, LL, n2t)
     posteriors!(γ, α, β)
-    
+
     logtot = sum(c)
     (display == :iter) && println("Iteration 0: logtot = $logtot")
-    
+
     for it = 1:maxiter
         update_a!(hmm.a, α, β)
         update_A_d!(hmm.A, θ_Q, ξ, s_ξ, α, β, LL, n2t, n_in_t, model_A; warm_start = warm_start)
@@ -291,7 +292,124 @@ function fit_mle!(
         posteriors!(γ, α, β)
 
         logtotp = sum(c)
-        (display == :iter) && println(now(), " Iteration $it: logtot = $logtotp") 
+        (display == :iter) && println(now(), " Iteration $it: logtot = $logtotp")
+        flush(stdout)
+
+        push!(history.logtots, logtotp)
+        history.iterations += 1
+
+        if abs(logtotp - logtot) < tol
+            (display in [:iter, :final]) &&
+                println("EM converged in $it iterations, logtot = $logtotp")
+            history.converged = true
+            break
+        end
+
+        logtot = logtotp
+    end
+
+    if !history.converged
+        if display in [:iter, :final]
+            println("EM has not converged after $(history.iterations) iterations, logtot = $logtot")
+        end
+    end
+
+    history, all_θ_Q, all_θ_Y
+end
+
+# TODO add possibiluity of memory different at each site
+function fit_mle!(
+    hmm::HierarchicalPeriodicHMM,
+    observations::AbstractArray,
+    n2t::AbstractArray{Int},
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY},
+    size_memories::AbstractVector # Vector of all local memory when there are not indentical
+    ;
+    display = :none,
+    maxiter = 100,
+    tol = 1e-3,
+    robust = false,
+    silence = true,
+    warm_start = true,
+    past = [0 1 0 1 1 0 1 0 0 0
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1]
+)
+    @argcheck display in [:none, :iter, :final]
+    @argcheck maxiter >= 0
+
+    N, K, T, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm, 2)
+    @argcheck length(size_memories) == D
+    max_size_memory = maximum(size_memories)
+
+    deg_Q = (size(θ_Q, 3) - 1) ÷ 2
+    deg_Y = (size(θ_Y, 4) - 1) ÷ 2
+    rain_cat = 2
+    @argcheck T == size(hmm.B, 2)
+    history = EMHistory(false, 0, [])
+
+    all_θ_Q = [copy(θ_Q)]
+    all_θ_Y = [copy(θ_Y)]
+    # Allocate memory for in-place updates
+    c = zeros(N)
+    α = zeros(N, K)
+    β = zeros(N, K)
+    γ = zeros(N, K) # regular smoothing proba
+    γ_s = zeros(K, D, max_size_memory, T, rain_cat) # summed smoothing proba
+    ξ = zeros(N, K, K)
+    s_ξ = zeros(T, K, K)
+    LL = zeros(N, K)
+
+    # assign category for observation depending in the past observations
+    memories = Int.(log.(size_memories) / log(2))
+    lag_cat = conditional_to(observations, memories; past = past)
+
+    n_in_t = [findall(n2t .== t) for t = 1:T]
+    n_occurence_history = [findall(.&(observations[:, j] .== y, lag_cat[:, j] .== h)) for j = 1:D, h = 1:max_size_memory, y = 0:1]
+    n_all = [n_per_category(tup..., n_in_t, n_occurence_history) for tup in Iterators.product(1:D, 1:max_size_memory, 1:T, 1:rain_cat)]
+
+    model_A = model_for_A_d(s_ξ[:, 1, :], deg_Q, silence = silence) # JuMP Model for transition matrix
+    model_B = model_for_B_d(γ_s[1, 1, 1, :, :], deg_Y, silence = silence) # JuMP Model for Emmission distribution
+
+    loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
+    robust && replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
+
+    forwardlog!(α, c, hmm.a, hmm.A, LL, n2t)
+    backwardlog!(β, c, hmm.a, hmm.A, LL, n2t)
+    posteriors!(γ, α, β)
+
+    logtot = sum(c)
+    (display == :iter) && println("Iteration 0: logtot = $logtot")
+
+    for it = 1:maxiter
+        update_a!(hmm.a, α, β)
+        update_A_d!(hmm.A, θ_Q, ξ, s_ξ, α, β, LL, n2t, n_in_t, model_A; warm_start = warm_start)
+        update_B_d!(hmm.B, θ_Y, γ, γ_s, observations, n_all, model_B; warm_start = warm_start)
+        # Ensure the "connected-ness" of the states,
+        # this prevents case where there is no transitions
+        # between two extremely likely observations.
+        robust && (hmm.A .+= eps())
+
+        @check isprobvec(hmm.a)
+        @check istransmats(hmm.A)
+
+        push!(all_θ_Q, copy(θ_Q))
+        push!(all_θ_Y, copy(θ_Y))
+
+        # loglikelihoods!(LL, hmm, observations, n2t)
+        loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
+
+        robust && replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
+
+        forwardlog!(α, c, hmm.a, hmm.A, LL, n2t)
+        backwardlog!(β, c, hmm.a, hmm.A, LL, n2t)
+        posteriors!(γ, α, β)
+
+        logtotp = sum(c)
+        (display == :iter) && println(now(), " Iteration $it: logtot = $logtotp")
         flush(stdout)
 
         push!(history.logtots, logtotp)
