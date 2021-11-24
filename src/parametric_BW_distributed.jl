@@ -1,17 +1,17 @@
-n_per_category(s, h, t, y, n_in_t, n_occurence_history) = (n_in_t[t] ∩ n_occurence_history[s,h,y])
+n_per_category(s, h, t, y, n_in_t, n_occurence_history) = (n_in_t[t] ∩ n_occurence_history[s, h, y])
 
 function γ_s!(γ_s, γ, n_all)
-  K, D, size_memory, T, rain_cat = size(γ_s)
-  for tup in Iterators.product(1:D, 1:size_memory, 1:T, 1:rain_cat)
-    for k in 1:K
-      γ_s[k, tup...] = sum(γ[n,k] for n in n_all[tup...]; init = 0)
+    K, D, size_memory, T, rain_cat = size(γ_s)
+    for tup in Iterators.product(1:D, 1:size_memory, 1:T, 1:rain_cat)
+        for k = 1:K
+            γ_s[k, tup...] = sum(γ[n, k] for n in n_all[tup...]; init = 0)
+        end
     end
-  end
 end
 
 function s_ξ!(s_ξ, ξ, n_in_t)
     T, K = size(s_ξ, 1), size(s_ξ, 2)
-    for t in 1:T
+    for t = 1:T
         for (k, l) in Iterators.product(1:K, 1:K)
             s_ξ[t, k, l] = sum(ξ[n, k, l] for n in n_in_t[t])
         end
@@ -27,19 +27,19 @@ function model_for_B_d(γ_s::AbstractMatrix, d::Int; silence = true)
     set_optimizer_attribute(model, "max_iter", 100)
 
     silence && set_silent(model)
-    f = 2π/T
-    cos_nj = [cos(f*j*t) for t in 1:T, j in 1:d]
-    sin_nj = [sin(f*j*t) for t in 1:T, j in 1:d]
-    trig = [[1; interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
+    f = 2π / T
+    cos_nj = [cos(f * j * t) for t = 1:T, j = 1:d]
+    sin_nj = [sin(f * j * t) for t = 1:T, j = 1:d]
+    trig = [[1; interleave2(cos_nj[t, :], sin_nj[t, :])] for t = 1:T]
 
     @variable(model, θ_jump[j = 1:(2d+1)])
     # Polynomial P
-    @NLexpression(model, Pn[t = 1:T], sum(trig[t][j] * θ_jump[j] for j in 1:length(trig[t])))
+    @NLexpression(model, Pn[t = 1:T], sum(trig[t][j] * θ_jump[j] for j = 1:length(trig[t])))
 
     @NLparameter(model, π_s[t = 1:T, y = 1:rain_cat] == γ_s[t, y])
 
     @NLexpression(model, mle,
-    - sum(π_s[t,1]*log1p(exp(-Pn[t])) for t in 1:T) - sum(π_s[t,2]*log1p(exp(+Pn[t])) for t in 1:T) 
+        -sum(π_s[t, 1] * log1p(exp(-Pn[t])) for t = 1:T) - sum(π_s[t, 2] * log1p(exp(+Pn[t])) for t = 1:T)
     ) # 1 is where it did not rain # 2 where it rained
     @NLobjective(
         model, Max,
@@ -50,7 +50,7 @@ function model_for_B_d(γ_s::AbstractMatrix, d::Int; silence = true)
     return model
 end
 
-function update_B_d!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} where N, γ::AbstractMatrix, γ_s::AbstractArray, observations, n_all, model_B::Model; warm_start = true)
+function update_B_d!(B::AbstractArray{T,4} where {T}, θ_Y::AbstractArray{N,4} where {N}, γ::AbstractMatrix, γ_s::AbstractArray, observations, n_all, model_B::Model; warm_start = true)
     @argcheck size(γ, 1) == size(observations, 1)
     @argcheck size(γ, 2) == size(B, 1)
     N = size(γ, 1)
@@ -63,14 +63,14 @@ function update_B_d!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} w
 
     γ_s!(γ_s, γ, n_all) # update coefficient in JuMP model
 
-    θ_res = pmap(tup -> fit_mle_one_B_d(θ_Y[tup...,:], model_B, γ_s[tup...,:,:]; warm_start = warm_start), Iterators.product(1:K, 1:D, 1:size_memory))
-    
+    θ_res = pmap(tup -> fit_mle_one_B_d(θ_Y[tup..., :], model_B, γ_s[tup..., :, :]; warm_start = warm_start), Iterators.product(1:K, 1:D, 1:size_memory))
+
     for (k, s, h) in Iterators.product(1:K, 1:D, 1:size_memory)
-         θ_Y[k,s,h,:] = θ_res[k,s,h] 
+        θ_Y[k, s, h, :] = θ_res[k, s, h]
     end
 
-    p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
-    B[:,:,:,:] = Bernoulli.(p)
+    p = [1 / (1 + exp(polynomial_trigo(t, θ_Y[k, s, h, :], T = T))) for k = 1:K, t = 1:T, s = 1:D, h = 1:size_memory]
+    B[:, :, :, :] = Bernoulli.(p)
 end
 
 function fit_mle_one_B_d(θ_Y, model_B, γ_s; warm_start = true)
@@ -79,8 +79,8 @@ function fit_mle_one_B_d(θ_Y, model_B, γ_s; warm_start = true)
     warm_start && set_start_value.(θ_jump, θ_Y[:])
     π_s = model_B[:π_s]
 
-    for t in 1:T, y in 1:rain_cat
-        set_value(π_s[t,y], γ_s[t, y])
+    for t = 1:T, y = 1:rain_cat
+        set_value(π_s[t, y], γ_s[t, y])
     end
     optimize!(model_B)
     value.(θ_jump)
@@ -92,24 +92,24 @@ function model_for_A_d(s_ξ::AbstractArray, d::Int; silence = true)
     model = Model(Ipopt.Optimizer)
     set_optimizer_attribute(model, "max_iter", 200)
     silence && set_silent(model)
-    f = 2π/T
-    cos_nj = [cos(f*j*t) for t in 1:T, j in 1:d]
-    sin_nj = [sin(f*j*t) for t in 1:T, j in 1:d]
+    f = 2π / T
+    cos_nj = [cos(f * j * t) for t = 1:T, j = 1:d]
+    sin_nj = [sin(f * j * t) for t = 1:T, j = 1:d]
 
-    trig = [[1; interleave2(cos_nj[t,:], sin_nj[t,:])] for t in 1:T]
+    trig = [[1; interleave2(cos_nj[t, :], sin_nj[t, :])] for t = 1:T]
 
     @variable(model, pklj_jump[l = 1:(K-1), j = 1:(2d+1)], start = 0.01)
     # Polynomial P_kl
-    @NLexpression(model, Pkl[t = 1:T, l = 1:K-1], sum(trig[t][j] * pklj_jump[l,j] for j in 1:length(trig[t])))
+    @NLexpression(model, Pkl[t = 1:T, l = 1:K-1], sum(trig[t][j] * pklj_jump[l, j] for j = 1:length(trig[t])))
 
     @NLparameter(model, s_πkl[t = 1:T, l = 1:K-1] == s_ξ[t, l])
     #TODO? is it useful to define the extra parameter for the sum?
-    @NLparameter(model, s_πk[t = 1:T] == sum(s_ξ[t, l] for l in 1:K))
+    @NLparameter(model, s_πk[t = 1:T] == sum(s_ξ[t, l] for l = 1:K))
 
     @NLobjective(
-    model,
-    Max,
-    sum(sum(s_πkl[t, l]*Pkl[t,l] for l in 1:K-1) - s_πk[t]*log1p(sum(exp(Pkl[t,l]) for l in 1:K-1)) for t in 1:T)
+        model,
+        Max,
+        sum(sum(s_πkl[t, l] * Pkl[t, l] for l = 1:K-1) - s_πk[t] * log1p(sum(exp(Pkl[t, l]) for l = 1:K-1)) for t = 1:T)
     )
     # To add NL parameters to the model for later use https://discourse.julialang.org/t/jump-updating-nlparameter-of-a-model-in-a-loop/35081/3
     model[:s_πkl] = s_πkl
@@ -119,7 +119,7 @@ end
 
 function update_A_d!(
     A::AbstractArray{T,3} where {T},
-    θ_Q::AbstractArray{T,3} where T,
+    θ_Q::AbstractArray{T,3} where {T},
     ξ::AbstractArray,
     s_ξ::AbstractArray,
     α::AbstractMatrix,
@@ -140,7 +140,7 @@ function update_A_d!(
               size(ξ, 3)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     @inbounds for n in OneTo(N - 1)
         t = n2t[n] # periodic t
         m = SHHMM.vec_maximum(view(LL, n + 1, :)) #TODO Should be imported from HMMBase maxmouchet 
@@ -159,16 +159,16 @@ function update_A_d!(
     # ξ are the filtering probablies
     s_ξ!(s_ξ, ξ, n_in_t)
     θ_res = pmap(k -> fit_mle_one_A_d(θ_Q[k, :, :], model_A, s_ξ[:, k, :]; warm_start = warm_start), 1:K)
-    
-    for k in 1:K
-        θ_Q[k,:,:] = θ_res[k][:,:] 
+
+    for k = 1:K
+        θ_Q[k, :, :] = θ_res[k][:, :]
     end
 
     #TODO change the vectorize form to loop (or something else) to avoid allocation 
-    [A[k,l,t] = exp(polynomial_trigo(t, θ_Q[k,l,:], T = T)) for k in 1:K, l in 1:K-1, t in 1:T]
-    [A[k,K,t] = 1 for k in 1:K, t in 1:T] # last colum is 1/normalization (one could do otherwise)
-    normalization_polynomial = [1+sum(A[k,l,t] for l in 1:K-1) for k in 1:K, t in 1:T]
-    [A[k,l,t] /= normalization_polynomial[k,t]  for k in 1:K, l in 1:K, t in 1:T]
+    [A[k, l, t] = exp(polynomial_trigo(t, θ_Q[k, l, :], T = T)) for k = 1:K, l = 1:K-1, t = 1:T]
+    [A[k, K, t] = 1 for k = 1:K, t = 1:T] # last colum is 1/normalization (one could do otherwise)
+    normalization_polynomial = [1 + sum(A[k, l, t] for l = 1:K-1) for k = 1:K, t = 1:T]
+    [A[k, l, t] /= normalization_polynomial[k, t] for k = 1:K, l = 1:K, t = 1:T]
 end
 
 function fit_mle_one_A_d(θ_Q, model, s_ξ; warm_start = true)
@@ -177,13 +177,13 @@ function fit_mle_one_A_d(θ_Q, model, s_ξ; warm_start = true)
     s_πk = model[:s_πk]
     s_πkl = model[:s_πkl]
     ## Update the smoothing parameters in the JuMP model
-    for t in 1:T
-        set_value(s_πk[t], sum(s_ξ[t, l] for l in 1:K))
-        for l in 1:K-1
-            set_value(s_πkl[t,l], s_ξ[t, l])
+    for t = 1:T
+        set_value(s_πk[t], sum(s_ξ[t, l] for l = 1:K))
+        for l = 1:K-1
+            set_value(s_πkl[t, l], s_ξ[t, l])
         end
     end
-    warm_start && set_start_value.(pklj_jump, θ_Q[:,:])
+    warm_start && set_start_value.(pklj_jump, θ_Q[:, :])
     # Optimize the updated model
     optimize!(model)
     # Obtained the new parameters
@@ -191,8 +191,8 @@ function fit_mle_one_A_d(θ_Q, model, s_ξ; warm_start = true)
 end
 
 function fit_mle(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY; all_iters = false, kwargs...)
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}; all_iters = false, kwargs...)
     hmm = copy(hmm)
     θ_Q = copy(θ_Q)
     θ_Y = copy(θ_Y)

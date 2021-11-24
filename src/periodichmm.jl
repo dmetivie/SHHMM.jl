@@ -1,7 +1,7 @@
 struct PeriodicHMM{F,T} <: AbstractHMM{F}
     a::Vector{T}
     A::Array{T,3}
-    B::Matrix{<: Distribution{F}}
+    B::Matrix{<:Distribution{F}}
     PeriodicHMM{F,T}(a, A, B) where {F,T} = assert_periodichmm(a, A, B) && new(a, A, B)
 end
 
@@ -14,12 +14,12 @@ PeriodicHMM(
 PeriodicHMM(A::AbstractArray{T,3}, B::AbstractMatrix{<:Distribution{F}}) where {F,T} =
     PeriodicHMM{F,T}(ones(size(A, 1)) ./ size(A, 1), A, B)
 
-function assert_periodichmm(a::AbstractVector, A::AbstractArray{T,3} where T, B::AbstractMatrix{<:Distribution})
+function assert_periodichmm(a::AbstractVector, A::AbstractArray{T,3} where {T}, B::AbstractMatrix{<:Distribution})
     @argcheck isprobvec(a)
     @argcheck istransmats(A)
     @argcheck all(length.(B) .== length(B[1])) ArgumentError("All distributions must have the same dimensions")
-    @argcheck size(A,3) == size(B,2) ArgumentError("Period length must be the same for transition matrix and distribution")
-    @argcheck length(a) == size(A,1) == size(B,1) ArgumentError("Number of transition rates must match length of chain")
+    @argcheck size(A, 3) == size(B, 2) ArgumentError("Period length must be the same for transition matrix and distribution")
+    @argcheck length(a) == size(A, 1) == size(B, 1) ArgumentError("Number of transition rates must match length of chain")
     return true
 end
 
@@ -28,7 +28,7 @@ function assert_periodichmm(hmm::PeriodicHMM)
     assert_periodichmm(hmm.a, hmm.A, hmm.B)
 end
 
-istransmats(A::AbstractArray{T,3} where {T}) = all(i->istransmat(@view A[:,:,i]), 1:size(A,3))
+istransmats(A::AbstractArray{T,3} where {T}) = all(i -> istransmat(@view A[:, :, i]), 1:size(A, 3))
 
 # ==(h1::PeriodicHMM, h2::PeriodicHMM) = (h1.a == h2.a) && (h1.A == h2.A) && (h1.B == h2.B)
 
@@ -37,7 +37,7 @@ function rand(
     hmm::PeriodicHMM,
     N::Integer;
     init = rand(rng, Categorical(hmm.a)),
-    seq = false,
+    seq = false
 )
     T = size(hmm.B, 2)
     z = Vector{Int}(undef, N)
@@ -45,7 +45,7 @@ function rand(
     n2t = CyclicArray(1:T, "1D")
     for n = 2:N
         tm1 = n2t[n-1] # periodic t-1
-        z[n] = rand(rng, Categorical(hmm.A[z[n-1],:,tm1]))
+        z[n] = rand(rng, Categorical(hmm.A[z[n-1], :, tm1]))
     end
     y = rand(rng, hmm, z)
     seq ? (z, y) : y
@@ -57,7 +57,7 @@ function rand(rng::AbstractRNG, hmm::PeriodicHMM{Univariate}, z::AbstractVector{
     n2t = CyclicArray(1:T, "1D")
     for n in eachindex(z)
         t = n2t[n] # periodic t
-        y[n] = rand(rng, hmm.B[z[n],t])
+        y[n] = rand(rng, hmm.B[z[n], t])
     end
     y
 end
@@ -67,12 +67,12 @@ function rand(
     hmm::PeriodicHMM{Multivariate},
     z::AbstractVector{<:Integer},
 )
-    y = Matrix{Float64}(undef, length(z), size(hmm,2))
+    y = Matrix{Float64}(undef, length(z), size(hmm, 2))
     T = size(hmm.B, 2)
     n2t = CyclicArray(1:T, "1D")
     for n in eachindex(z)
         t = n2t[n] # periodic t
-        y[n, :] = rand(rng, hmm.B[z[n],t])
+        y[n, :] = rand(rng, hmm.B[z[n], t])
     end
     y
 end
@@ -91,7 +91,7 @@ size(hmm::PeriodicHMM, dim = :) = (size(hmm.B, 1), length(hmm.B[1]), size(hmm.B,
 copy(hmm::PeriodicHMM) = PeriodicHMM(copy(hmm.a), copy(hmm.A), copy(hmm.B))
 
 function nparams(hmm::PeriodicHMM)
-    (length(hmm.a) - 1) + (size(hmm.A,1) * size(hmm.A,2) - size(hmm.A,1)) * size(hmm.A,3)
+    (length(hmm.a) - 1) + (size(hmm.A, 1) * size(hmm.A, 2) - size(hmm.A, 1)) * size(hmm.A, 3)
 end
 
 
@@ -102,7 +102,7 @@ function likelihoods!(L::AbstractMatrix, hmm::PeriodicHMM{Univariate}, observati
     n2t = CyclicArray(1:T, "1D")
     @inbounds for i in OneTo(K), n in OneTo(T)
         t = n2t[n] # periodic t
-        L[n, i] = pdf(hmm.B[i,t], observations[n])
+        L[n, i] = pdf(hmm.B[i, t], observations[n])
     end
 end
 
@@ -112,7 +112,7 @@ function likelihoods!(L::AbstractMatrix, hmm::PeriodicHMM{Multivariate}, observa
     n2t = CyclicArray(1:T, "1D")
     @inbounds for i in OneTo(K), n in OneTo(T)
         t = n2t[n] # periodic t
-        L[n, i] = pdf(hmm.B[i,t], view(observations, n, :))
+        L[n, i] = pdf(hmm.B[i, t], view(observations, n, :))
     end
 end
 
@@ -122,7 +122,7 @@ function loglikelihoods!(LL::AbstractMatrix, hmm::PeriodicHMM{Univariate}, obser
     n2t = CyclicArray(1:T, "1D")
     @inbounds for i in OneTo(K), n in OneTo(N)
         t = n2t[n] # periodic t
-        LL[n,i] = logpdf(hmm.B[i,t], observations[n])
+        LL[n, i] = logpdf(hmm.B[i, t], observations[n])
     end
 end
 
@@ -132,7 +132,7 @@ function loglikelihoods!(LL::AbstractMatrix, hmm::PeriodicHMM{Multivariate}, obs
     n2t = CyclicArray(1:T, "1D")
     @inbounds for i in OneTo(K), n in OneTo(N)
         t = n2t[n] # periodic t
-        LL[n,i] = logpdf(hmm.B[i,t], view(observations, n, :))
+        LL[n, i] = logpdf(hmm.B[i, t], view(observations, n, :))
     end
 end
 
@@ -155,7 +155,7 @@ function update_A!(
               size(ξ, 3)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     n2t = CyclicArray(1:T, "1D")
     @inbounds for n in OneTo(N - 1)
         t = n2t[n] # periodic t
@@ -175,23 +175,23 @@ function update_A!(
     fill!(A, 0.0)
     ## For periodicHMM only the n observation corresponding to A(t) are used to update A(t)
     t_n = n2t[1:N]
-    n_in_t = [findall(t_n .== t) for t in 1:T] # could probably be speeded up
+    n_in_t = [findall(t_n .== t) for t = 1:T] # could probably be speeded up
 
     @inbounds for t in OneTo(T)
-            for i in OneTo(K)
-                c = 0.0
+        for i in OneTo(K)
+            c = 0.0
 
-                for j in OneTo(K)
-                    for n in setdiff(n_in_t[t],N)
-                        A[i, j, t] += ξ[n, i, j]
-                    end
-                    c += A[i, j, t]
+            for j in OneTo(K)
+                for n in setdiff(n_in_t[t], N)
+                    A[i, j, t] += ξ[n, i, j]
                 end
-
-                for j in OneTo(K)
-                    A[i, j, t] /= c
-                end
+                c += A[i, j, t]
             end
+
+            for j in OneTo(K)
+                A[i, j, t] /= c
+            end
+        end
     end
 end
 
@@ -205,13 +205,13 @@ function update_B!(B::AbstractMatrix, γ::AbstractMatrix, observations, estimato
     ## For periodicHMM only the n observation corresponding to A(t) are used to update A(t)
     n2t = CyclicArray(1:T, "1D")
     t_n = n2t[1:N]
-    n_in_t = [findall(t_n .== t) for t in 1:T] # could probably be speeded up. For exemple computed outside the function only once
+    n_in_t = [findall(t_n .== t) for t = 1:T] # could probably be speeded up. For exemple computed outside the function only once
 
     @inbounds for t in OneTo(T)
         n_t = n_in_t[t]
         for i in OneTo(K)
             if sum(γ[n_t, i]) > 0
-                B[i,t] = estimator(typeof(B[i,t]), permutedims(observations[n_t,:]), γ[n_t, i])
+                B[i, t] = estimator(typeof(B[i, t]), permutedims(observations[n_t, :]), γ[n_t, i])
             end
         end
     end
@@ -225,7 +225,7 @@ function fit_mle!(
     tol = 1e-3,
     robust = false,
     estimator = fit_mle
-    )
+)
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0
 
@@ -308,7 +308,7 @@ function forwardlog!(
     @argcheck size(α, 2) == size(LL, 2) == size(a, 1) == size(A, 1) == size(A, 2)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
 
     fill!(α, 0.0)
     fill!(c, 0.0)
@@ -333,7 +333,7 @@ function forwardlog!(
 
         for j in OneTo(K)
             for i in OneTo(K)
-                α[n,j] += α[n-1, i] * A[i,j,tm1]
+                α[n, j] += α[n-1, i] * A[i, j, tm1]
             end
             α[n, j] *= exp(LL[n, j] - m)
             c[n] += α[n, j]
@@ -359,7 +359,7 @@ function backwardlog!(
     @argcheck size(β, 2) == size(LL, 2) == size(a, 1) == size(A, 1) == size(A, 2)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     L = zeros(K)
     (T == 0) && return
 
@@ -381,7 +381,7 @@ function backwardlog!(
 
         for j in OneTo(K)
             for i in OneTo(K)
-                β[n,j] += β[n+1, i] * A[j,i,t] * L[i]
+                β[n, j] += β[n+1, i] * A[j, i, t] * L[i]
             end
             c[n+1] += β[n, j]
         end
@@ -431,7 +431,7 @@ function viterbi!(
     L::AbstractMatrix,
 )
     N, K = size(L)
-    T = size(A,3)
+    T = size(A, 3)
     (T == 0) && return
 
     fill!(T1, 0.0)
@@ -494,7 +494,7 @@ function viterbilog!(
     LL::AbstractMatrix,
 )
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     (T == 0) && return
 
     fill!(T1, 0.0)

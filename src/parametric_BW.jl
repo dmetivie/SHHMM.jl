@@ -1,6 +1,6 @@
 function update_A!(
     A::AbstractArray{T,3} where {T},
-    θ_Q::AbstractArray{T,3} where T,
+    θ_Q::AbstractArray{T,3} where {T},
     ξ::AbstractArray,
     α::AbstractMatrix,
     β::AbstractMatrix,
@@ -19,7 +19,7 @@ function update_A!(
               size(ξ, 3)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     @inbounds for n in OneTo(N - 1)
         t = n2t[n] # periodic t
         m = SHHMM.vec_maximum(view(LL, n + 1, :)) #TODO Should be imported from HMMBase maxmouchet 
@@ -39,34 +39,34 @@ function update_A!(
     πkl = model_A[:πkl]
     πk = model_A[:πk]
 
-    for k in 1:K
+    for k = 1:K
         ## Update the smoothing parameters in the JuMP model
-        [set_value(πkl[n,l], ξ[n, k, l]) for n in 1:N-1, l in 1:K-1]
-        [set_value(πk[n], sum(ξ[n, k, l] for l in 1:K)) for n in 1:N-1]
-        warm_start && set_start_value.(pklj_jump, θ_Q[k,:,:])
+        [set_value(πkl[n, l], ξ[n, k, l]) for n = 1:N-1, l = 1:K-1]
+        [set_value(πk[n], sum(ξ[n, k, l] for l = 1:K)) for n = 1:N-1]
+        warm_start && set_start_value.(pklj_jump, θ_Q[k, :, :])
         # Optimize the updated model
         optimize!(model_A)
         # Obtained the new parameters
-        θ_Q[k,:,:] = value.(pklj_jump)
+        θ_Q[k, :, :] = value.(pklj_jump)
     end
 
-    [A[k,l,t] = exp(polynomial_trigo(t, θ_Q[k,l,:], T = T)) for k in 1:K, l in 1:K-1, t in 1:T]
-    [A[k,K,t] = 1 for k in 1:K, t in 1:T] # last colum is 1/normalization (one could do otherwise)
-    normalization_polynomial = [1+sum(A[k,l,t] for l in 1:K-1) for k in 1:K, t in 1:T]
-    [A[k,l,t] /= normalization_polynomial[k,t]  for k in 1:K, l in 1:K, t in 1:T]
+    [A[k, l, t] = exp(polynomial_trigo(t, θ_Q[k, l, :], T = T)) for k = 1:K, l = 1:K-1, t = 1:T]
+    [A[k, K, t] = 1 for k = 1:K, t = 1:T] # last colum is 1/normalization (one could do otherwise)
+    normalization_polynomial = [1 + sum(A[k, l, t] for l = 1:K-1) for k = 1:K, t = 1:T]
+    [A[k, l, t] /= normalization_polynomial[k, t] for k = 1:K, l = 1:K, t = 1:T]
 end
 
 function fit_mle_B_trig1!(θ_Y, γ, k, s, h, model_B; warm_start = true)
     θ_jump = model_B[:θ_jump]
-    mle = model_B[:mle][k,s,h]
-    warm_start && set_start_value.(θ_jump, θ_Y[k,s,h,:])
+    mle = model_B[:mle][k, s, h]
+    warm_start && set_start_value.(θ_jump, θ_Y[k, s, h, :])
     # set_silent(model_B)
     @NLobjective(
-    model_B, Max,
-    mle
+        model_B, Max,
+        mle
     )
     optimize!(model_B)
-    θ_Y[k,s,h,:] = value.(θ_jump)
+    θ_Y[k, s, h, :] = value.(θ_jump)
 end
 
 function fit_mle_B_trig01!(θ_Y, model_B, mle; warm_start = true)
@@ -74,8 +74,8 @@ function fit_mle_B_trig01!(θ_Y, model_B, mle; warm_start = true)
     warm_start && set_start_value.(θ_jump, θ_Y[:])
     # set_silent(model_B)
     @NLobjective(
-    model_B, Max,
-    mle
+        model_B, Max,
+        mle
     )
     optimize!(model_B)
     θ_Y[:] = value.(θ_jump)
@@ -86,7 +86,7 @@ function fit_mle_B_trig!(θ_Y::AbstractVector, model::Model, γ::AbstractVector;
     θ_jump = model[:θ_jump]
     πk = model[:πk]
     ## Update the smoothing parameters in the JuMP model
-    for n in 1:N
+    for n = 1:N
         set_value(πk[n], γ[n])
     end
     warm_start && set_start_value.(θ_jump, θ_Y[:])
@@ -96,7 +96,7 @@ function fit_mle_B_trig!(θ_Y::AbstractVector, model::Model, γ::AbstractVector;
     θ_Y[:] = value.(θ_jump)
 end
 
-function update_B!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} where N, γ::AbstractMatrix, observations, model_B::Model, mles; warm_start = true)
+function update_B!(B::AbstractArray{T,4} where {T}, θ_Y::AbstractArray{N,4} where {N}, γ::AbstractMatrix, observations, model_B::Model, mles; warm_start = true)
     @argcheck size(γ, 1) == size(observations, 1)
     @argcheck size(γ, 2) == size(B, 1)
     N = size(γ, 1)
@@ -108,21 +108,21 @@ function update_B!(B::AbstractArray{T, 4} where T, θ_Y::AbstractArray{N, 4} whe
     θ_jump = model_B[:θ_jump]
     πk = model_B[:πk]
     ## Update the smoothing parameters in the JuMP model
-    for n in 1:N, k in 1:K
-        set_value(πk[n,k], γ[n,k]) 
+    for n = 1:N, k = 1:K
+        set_value(πk[n, k], γ[n, k])
     end
-    for k in 1:K, s in 1:D, h in 1:size_memory
-        warm_start && set_start_value.(θ_jump, θ_Y[k,s,h,:])
+    for k = 1:K, s = 1:D, h = 1:size_memory
+        warm_start && set_start_value.(θ_jump, θ_Y[k, s, h, :])
         # set_silent(model_B)
         @NLobjective(
             model_B, Max,
-            mles[k,s,h]
-            )
+            mles[k, s, h]
+        )
         optimize!(model_B)
-        θ_Y[k,s,h,:] = value.(θ_jump)
+        θ_Y[k, s, h, :] = value.(θ_jump)
     end
-    p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
-    B[:,:,:,:] = Bernoulli.(p)
+    p = [1 / (1 + exp(polynomial_trigo(t, θ_Y[k, s, h, :], T = T))) for k = 1:K, t = 1:T, s = 1:D, h = 1:size_memory]
+    B[:, :, :, :] = Bernoulli.(p)
 end
 
 # JuMP model use to increase R(θ,θ^i) for the Q(t) matrix
@@ -131,24 +131,24 @@ function model_for_A(ξ::AbstractArray, n2t::AbstractArray{Int}, d::Int, T::Int;
     N = length(n2t)
     model = Model(Ipopt.Optimizer)
     silence && set_silent(model)
-    f = 2π/T
-    cos_nj = [cos(f*j*n2t[n]) for n in 1:(N-1), j in 1:d]
-    sin_nj = [sin(f*j*n2t[n]) for n in 1:(N-1), j in 1:d]
+    f = 2π / T
+    cos_nj = [cos(f * j * n2t[n]) for n = 1:(N-1), j = 1:d]
+    sin_nj = [sin(f * j * n2t[n]) for n = 1:(N-1), j = 1:d]
 
-    trig_nj = [[1; interleave2(cos_nj[n,:], sin_nj[n,:])] for n in 1:N-1]
+    trig_nj = [[1; interleave2(cos_nj[n, :], sin_nj[n, :])] for n = 1:N-1]
 
     @variable(model, pklj_jump[l = 1:(K-1), j = 1:(2d+1)], start = 0.01)
     # Polynomial P_kl
 
-    @NLexpression(model, Pkl[n = 1:N-1, l = 1:K-1], sum(trig_nj[n][j] * pklj_jump[l,j] for j in 1:length(trig_nj[n])))
+    @NLexpression(model, Pkl[n = 1:N-1, l = 1:K-1], sum(trig_nj[n][j] * pklj_jump[l, j] for j = 1:length(trig_nj[n])))
 
     @NLparameter(model, πkl[n = 1:N-1, l = 1:K-1] == ξ[n, l])
-    @NLparameter(model, πk[n = 1:N-1] == sum(ξ[n, l] for l in 1:K))
+    @NLparameter(model, πk[n = 1:N-1] == sum(ξ[n, l] for l = 1:K))
 
     @NLobjective(
-    model,
-    Max,
-    sum(sum(πkl[n, l]*Pkl[n,l] for l in 1:K-1) - πk[n]*log1p(sum(exp(Pkl[n,l]) for l in 1:K-1)) for n in 1:N-1)
+        model,
+        Max,
+        sum(sum(πkl[n, l] * Pkl[n, l] for l = 1:K-1) - πk[n] * log1p(sum(exp(Pkl[n, l]) for l = 1:K-1)) for n = 1:N-1)
     )
     # To add NL parameters to the model for later use https://discourse.julialang.org/t/jump-updating-nlparameter-of-a-model-in-a-loop/35081/3
     model[:πkl] = πkl
@@ -162,19 +162,19 @@ function model_for_B(γ::AbstractMatrix, n2t, n_occurence_history, d::Int, T::In
     model = Model(Ipopt.Optimizer)
     set_optimizer_attribute(model, "max_cpu_time", 60.0)
     silence && set_silent(model)
-    f = 2π/T
-    cos_nj = [cos(f*j*n2t[n]) for n in 1:N, j in 1:d]
-    sin_nj = [sin(f*j*n2t[n]) for n in 1:N, j in 1:d]
+    f = 2π / T
+    cos_nj = [cos(f * j * n2t[n]) for n = 1:N, j = 1:d]
+    sin_nj = [sin(f * j * n2t[n]) for n = 1:N, j = 1:d]
 
-    trig = [[1; interleave2(cos_nj[n,:], sin_nj[n,:])] for n in 1:N]
+    trig = [[1; interleave2(cos_nj[n, :], sin_nj[n, :])] for n = 1:N]
     @variable(model, θ_jump[j = 1:(2d+1)])
     # Polynomial P
-    @NLexpression(model, Pn[n = 1:N], sum(trig[n][j] * θ_jump[j] for j in 1:length(trig[n])))
+    @NLexpression(model, Pn[n = 1:N], sum(trig[n][j] * θ_jump[j] for j = 1:length(trig[n])))
 
     @NLparameter(model, πk[n = 1:N, k = 1:K] == γ[n, k])
 
     @NLexpression(model, mle[k = 1:K, s = 1:D, h = 1:size_memory],
-    - sum(πk[n,k]*log1p(exp(-Pn[n])) for n in n_occurence_history[s,h,1]) - sum(πk[n,k]*log1p(exp(Pn[n])) for n in n_occurence_history[s,h,2])
+        -sum(πk[n, k] * log1p(exp(-Pn[n])) for n in n_occurence_history[s, h, 1]) - sum(πk[n, k] * log1p(exp(Pn[n])) for n in n_occurence_history[s, h, 2])
     ) # 1 is where it did not rain # 2 where it rained
 
     # I don't know if it is the best but https://discourse.julialang.org/t/jump-updating-nlparameter-of-a-model-in-a-loop/35081/3
@@ -184,8 +184,8 @@ function model_for_B(γ::AbstractMatrix, n2t, n_occurence_history, d::Int, T::In
 end
 
 function fit_mle2(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY; all_iters = false, kwargs...)
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}; all_iters = false, kwargs...)
     hmm = copy(hmm)
     θ_Q = copy(θ_Q)
     θ_Y = copy(θ_Y)
@@ -200,8 +200,8 @@ end
 
 
 function fit_mle3(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY; all_iters = false, kwargs...)
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}; all_iters = false, kwargs...)
     hmm = copy(hmm)
     θ_Q = copy(θ_Q)
     θ_Y = copy(θ_Y)
@@ -215,8 +215,8 @@ function fit_mle3(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray
 end
 
 function fit_mle(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY; all_iters = false, kwargs...)
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}; all_iters = false, kwargs...)
     hmm = copy(hmm)
     θ_Q = copy(θ_Q)
     θ_Y = copy(θ_Y)
@@ -230,8 +230,8 @@ function fit_mle(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{
 end
 
 function fit_mle1(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY; all_iters = false, kwargs...)
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}; all_iters = false, kwargs...)
     hmm = copy(hmm)
     θ_Q = copy(θ_Q)
     θ_Y = copy(θ_Y)
@@ -248,8 +248,8 @@ function fit_mle2!(
     hmm::HierarchicalPeriodicHMM,
     observations,
     n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}
     ;
     display = :none,
     maxiter = 100,
@@ -261,14 +261,14 @@ function fit_mle2!(
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0
 
-    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm,4), size(hmm,2)
+    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm, 4), size(hmm, 2)
 
-    deg_Q = (size(θ_Q, 3)-1)÷2
-    deg_Y = (size(θ_Y, 4)-1)÷2
+    deg_Q = (size(θ_Q, 3) - 1) ÷ 2
+    deg_Y = (size(θ_Y, 4) - 1) ÷ 2
 
     @argcheck T == size(hmm.B, 2)
     history = EMHistory(false, 0, [])
-    
+
     all_θ_Q = [copy(θ_Q)]
     all_θ_Y = [copy(θ_Y)]
     # Allocate memory for in-place updates
@@ -280,12 +280,12 @@ function fit_mle2!(
     LL = zeros(N, K)
 
     # assign category for observation depending in the past observations
-    memory = Int(log(size_memory)/log(2))
+    memory = Int(log(size_memory) / log(2))
     lag_cat = conditional_to(observations, memory)
-    n_occurence_history = [findall(.&(observations[:,j] .== y, lag_cat[:,j] .== h)) for j in 1:D, h in 1:size_memory, y in 0:1]
+    n_occurence_history = [findall(.&(observations[:, j] .== y, lag_cat[:, j] .== h)) for j = 1:D, h = 1:size_memory, y = 0:1]
 
-    model_A = model_for_A(ξ[:,1,:], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
-    model_B = [model_for_B2(γ[:,1], n2t, n_occurence_history[j,h,:], deg_Y, T, D, size_memory, silence = silence) for j in 1:D, h in 1:size_memory] # JuMP Model for transition matrix
+    model_A = model_for_A(ξ[:, 1, :], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
+    model_B = [model_for_B2(γ[:, 1], n2t, n_occurence_history[j, h, :], deg_Y, T, D, size_memory, silence = silence) for j = 1:D, h = 1:size_memory] # JuMP Model for transition matrix
 
     loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
     robust && replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
@@ -351,8 +351,8 @@ function fit_mle3!(
     hmm::HierarchicalPeriodicHMM,
     observations,
     n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}
     ;
     display = :none,
     maxiter = 100,
@@ -364,14 +364,14 @@ function fit_mle3!(
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0
 
-    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm,4), size(hmm,2)
+    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm, 4), size(hmm, 2)
 
-    deg_Q = (size(θ_Q, 3)-1)÷2
-    deg_Y = (size(θ_Y, 4)-1)÷2
+    deg_Q = (size(θ_Q, 3) - 1) ÷ 2
+    deg_Y = (size(θ_Y, 4) - 1) ÷ 2
 
     @argcheck T == size(hmm.B, 2)
     history = EMHistory(false, 0, [])
-    
+
     all_θ_Q = [copy(θ_Q)]
     all_θ_Y = [copy(θ_Y)]
     # Allocate memory for in-place updates
@@ -383,12 +383,12 @@ function fit_mle3!(
     LL = zeros(N, K)
 
     # assign category for observation depending in the past observations
-    memory = Int(log(size_memory)/log(2))
+    memory = Int(log(size_memory) / log(2))
     lag_cat = conditional_to(observations, memory)
-    n_occurence_history = [findall(.&(observations[:,j] .== y, lag_cat[:,j] .== h)) for j in 1:D, h in 1:size_memory, y in 0:1]
+    n_occurence_history = [findall(.&(observations[:, j] .== y, lag_cat[:, j] .== h)) for j = 1:D, h = 1:size_memory, y = 0:1]
 
-    model_A = model_for_A(ξ[:,1,:], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
-    model_B = [model_for_B3(γ[:,1], n2t, n_occurence_history[j,h,:], deg_Y, T, D, size_memory, silence = silence) for j in 1:D, h in 1:size_memory] # JuMP Model for transition matrix
+    model_A = model_for_A(ξ[:, 1, :], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
+    model_B = [model_for_B3(γ[:, 1], n2t, n_occurence_history[j, h, :], deg_Y, T, D, size_memory, silence = silence) for j = 1:D, h = 1:size_memory] # JuMP Model for transition matrix
 
     loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
     robust && replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
@@ -452,8 +452,8 @@ function fit_mle!(
     hmm::HierarchicalPeriodicHMM,
     observations,
     n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}
     ;
     display = :none,
     maxiter = 100,
@@ -465,14 +465,14 @@ function fit_mle!(
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0
 
-    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm,4), size(hmm,2)
+    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm, 4), size(hmm, 2)
 
-    deg_Q = (size(θ_Q, 3)-1)÷2
-    deg_Y = (size(θ_Y, 4)-1)÷2
+    deg_Q = (size(θ_Q, 3) - 1) ÷ 2
+    deg_Y = (size(θ_Y, 4) - 1) ÷ 2
 
     @argcheck T == size(hmm.B, 2)
     history = EMHistory(false, 0, [])
-    
+
     all_θ_Q = [copy(θ_Q)]
     all_θ_Y = [copy(θ_Y)]
     # Allocate memory for in-place updates
@@ -484,14 +484,14 @@ function fit_mle!(
     LL = zeros(N, K)
 
     # assign category for observation depending in the past observations
-    memory = Int(log(size_memory)/log(2))
+    memory = Int(log(size_memory) / log(2))
     lag_cat = conditional_to(observations, memory)
-    n_occurence_history = [findall(.&(observations[:,j] .== y, lag_cat[:,j] .== h)) for j in 1:D, h in 1:size_memory, y in 0:1]
+    n_occurence_history = [findall(.&(observations[:, j] .== y, lag_cat[:, j] .== h)) for j = 1:D, h = 1:size_memory, y = 0:1]
 
-    model_A = model_for_A(ξ[:,1,:], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
+    model_A = model_for_A(ξ[:, 1, :], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
     model_B = model_for_B(γ, n2t, n_occurence_history, deg_Y, T, D, size_memory, silence = silence) # JuMP Model for transition matrix
     mles = model_B[:mle]
-    
+
     loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
     robust && replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
 
@@ -556,8 +556,8 @@ function fit_mle1!(
     hmm::HierarchicalPeriodicHMM,
     observations,
     n2t::AbstractArray{Int},
-    θ_Q::AbstractArray{TQ, 3} where TQ,
-    θ_Y::AbstractArray{TY, 4} where TY
+    θ_Q::AbstractArray{TQ,3} where {TQ},
+    θ_Y::AbstractArray{TY,4} where {TY}
     ;
     display = :none,
     maxiter = 100,
@@ -569,14 +569,14 @@ function fit_mle1!(
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0
 
-    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm,4), size(hmm,2)
+    N, K, T, size_memory, D = size(observations, 1), size(hmm, 1), size(hmm, 3), size(hmm, 4), size(hmm, 2)
 
-    deg_Q = (size(θ_Q, 3)-1)÷2
-    deg_Y = (size(θ_Y, 4)-1)÷2
+    deg_Q = (size(θ_Q, 3) - 1) ÷ 2
+    deg_Y = (size(θ_Y, 4) - 1) ÷ 2
 
     @argcheck T == size(hmm.B, 2)
     history = EMHistory(false, 0, [])
-    
+
     all_θ_Q = [copy(θ_Q)]
     all_θ_Y = [copy(θ_Y)]
     # Allocate memory for in-place updates
@@ -588,11 +588,11 @@ function fit_mle1!(
     LL = zeros(N, K)
 
     # assign category for observation depending in the past observations
-    memory = Int(log(size_memory)/log(2))
+    memory = Int(log(size_memory) / log(2))
     lag_cat = conditional_to(observations, memory)
-    n_occurence_history = [findall(.&(observations[:,j] .== y, lag_cat[:,j] .== h)) for j in 1:D, h in 1:size_memory, y in 0:1]
+    n_occurence_history = [findall(.&(observations[:, j] .== y, lag_cat[:, j] .== h)) for j = 1:D, h = 1:size_memory, y = 0:1]
 
-    model_A = model_for_A(ξ[:,1,:], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
+    model_A = model_for_A(ξ[:, 1, :], n2t, deg_Q, T, silence = silence) # JuMP Model for transition matrix
     model_B = model_for_B(γ, n2t, n_occurence_history, deg_Y, T, D, size_memory, silence = silence) # JuMP Model for transition matrix
 
     loglikelihoods!(LL, hmm, observations, n2t, lag_cat)

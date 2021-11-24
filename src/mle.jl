@@ -86,7 +86,7 @@ function fit_mle!(
     maxiter = 100,
     tol = 1e-3,
     robust = false,
-    estimator = fit_mle,
+    estimator = fit_mle
 )
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0

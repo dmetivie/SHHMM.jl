@@ -131,7 +131,7 @@ function rand(
     hmm::AbstractHMM,
     T::Integer;
     init = rand(rng, Categorical(hmm.a)),
-    seq = false,
+    seq = false
 )
     z = Vector{Int}(undef, T)
     (T >= 1) && (z[1] = init)

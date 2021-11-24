@@ -1,14 +1,14 @@
 function HierarchicalPeriodicHMM_trig(θ_Q::AbstractArray, θ_Y::AbstractArray, T::Int)
     K, D, size_memory = size(θ_Y)
     @argcheck K == size(θ_Q, 1)
-    
-    A = zeros(K,K,T)
-    [A[k,l,t] = exp(polynomial_trigo(t, θ_Q[k,l,:], T = T)) for k in 1:K, l in 1:K-1, t in 1:T]
-    [A[k,K,t] = 1 for k in 1:K, t in 1:T] # last colum is 1/normalization (one could do otherwise)
-    normalization_polynomial = [1+sum(A[k,l,t] for l in 1:K-1) for k in 1:K, t in 1:T]
-    [A[k,l,t] /= normalization_polynomial[k,t]  for k in 1:K, l in 1:K, t in 1:T]
-    
-    p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
+
+    A = zeros(K, K, T)
+    [A[k, l, t] = exp(polynomial_trigo(t, θ_Q[k, l, :], T = T)) for k = 1:K, l = 1:K-1, t = 1:T]
+    [A[k, K, t] = 1 for k = 1:K, t = 1:T] # last colum is 1/normalization (one could do otherwise)
+    normalization_polynomial = [1 + sum(A[k, l, t] for l = 1:K-1) for k = 1:K, t = 1:T]
+    [A[k, l, t] /= normalization_polynomial[k, t] for k = 1:K, l = 1:K, t = 1:T]
+
+    p = [1 / (1 + exp(polynomial_trigo(t, θ_Y[k, s, h, :], T = T))) for k = 1:K, t = 1:T, s = 1:D, h = 1:size_memory]
 
     return HierarchicalPeriodicHMM(A, Bernoulli.(p))
 end
@@ -16,14 +16,14 @@ end
 function HierarchicalPeriodicHMM_trig(a::AbstractVector, θ_Q::AbstractArray, θ_Y::AbstractArray, T::Int)
     K, D, size_memory = size(θ_Y)
     @assert K == size(θ_Q, 1)
-    
-    A = zeros(K,K,T)
-    [A[k,l,t] = exp(polynomial_trigo(t, θ_Q[k,l,:], T = T)) for k in 1:K, l in 1:K-1, t in 1:T]
-    [A[k,K,t] = 1 for k in 1:K, t in 1:T] # last colum is 1/normalization (one could do otherwise)
-    normalization_polynomial = [1+sum(A[k,l,t] for l in 1:K-1) for k in 1:K, t in 1:T]
-    [A[k,l,t] /= normalization_polynomial[k,t]  for k in 1:K, l in 1:K, t in 1:T]
-    
-    p = [1/(1+exp(polynomial_trigo(t, θ_Y[k,s,h,:], T = T))) for k in 1:K, t in 1:T, s in 1:D, h in 1:size_memory]
+
+    A = zeros(K, K, T)
+    [A[k, l, t] = exp(polynomial_trigo(t, θ_Q[k, l, :], T = T)) for k = 1:K, l = 1:K-1, t = 1:T]
+    [A[k, K, t] = 1 for k = 1:K, t = 1:T] # last colum is 1/normalization (one could do otherwise)
+    normalization_polynomial = [1 + sum(A[k, l, t] for l = 1:K-1) for k = 1:K, t = 1:T]
+    [A[k, l, t] /= normalization_polynomial[k, t] for k = 1:K, l = 1:K, t = 1:T]
+
+    p = [1 / (1 + exp(polynomial_trigo(t, θ_Y[k, s, h, :], T = T))) for k = 1:K, t = 1:T, s = 1:D, h = 1:size_memory]
 
     return HierarchicalPeriodicHMM(a, A, Bernoulli.(p))
 end
@@ -34,7 +34,7 @@ function rand(
     n2t::AbstractArray{Int},
     useless;
     init = rand(rng, Categorical(hmm.a)),
-    seq = false,
+    seq = false
 )
     T = size(hmm.B, 2)
     N = length(n2t)
@@ -43,7 +43,7 @@ function rand(
     (T >= 1) && (z[1] = init)
     for n = 2:N
         tm1 = n2t[n-1] # periodic t-1
-        z[n] = rand(rng, Categorical(hmm.A[z[n-1],:,tm1]))
+        z[n] = rand(rng, Categorical(hmm.A[z[n-1], :, tm1]))
     end
     y = rand(rng, hmm, n2t, z, useless)
     seq ? (z, y) : y
@@ -55,7 +55,7 @@ function rand(rng::AbstractRNG, hmm::PeriodicHMM{Univariate}, n2t::AbstractArray
     @argcheck length(n2t) == length(z)
     for n in eachindex(z)
         t = n2t[n] # periodic t
-        y[n] = rand(rng, hmm.B[z[n],t])
+        y[n] = rand(rng, hmm.B[z[n], t])
     end
     y
 end
@@ -67,7 +67,7 @@ function rand(rng::AbstractRNG, hmm::PeriodicHMM{Univariate}, n2t::AbstractArray
     y[1] = yini
     for n in eachindex(z)
         t = n2t[n] # periodic t
-        p = yesterday.(params.(hmm.B[z[n],t].v),y[n-1])
+        p = yesterday.(params.(hmm.B[z[n], t].v), y[n-1])
         y[n] = rand(rng, Product(Bernoulli.(p)))
     end
     y
@@ -80,12 +80,12 @@ function rand(
     z::AbstractVector{<:Integer},
     useless::String
 )
-    y = Matrix{eltype(hmm.B[1])}(undef, length(z), size(hmm,2))
+    y = Matrix{eltype(hmm.B[1])}(undef, length(z), size(hmm, 2))
     T = size(hmm.B, 2)
     @argcheck length(n2t) == length(z)
     for n in eachindex(z)
         t = n2t[n] # periodic t
-        y[n, :] = rand(rng, hmm.B[z[n],t])
+        y[n, :] = rand(rng, hmm.B[z[n], t])
     end
     y
 end
@@ -101,10 +101,10 @@ function rand(
     y = Matrix{eltype(hmm.B[1])}(undef, length(z), T)
     @argcheck length(n2t) == length(z)
     N_ini = size(yini, 2)
-    y[1:N_ini,:] = yini
+    y[1:N_ini, :] = yini
     for n in eachindex(z)[N_ini+1:end]
         t = n2t[n] # periodic t
-        p = yesterday.(params.(hmm.B[z[n],t].v),y[n-1,:])
+        p = yesterday.(params.(hmm.B[z[n], t].v), y[n-1, :])
         y[n, :] = rand(rng, Product(Bernoulli.(p)))
     end
     y
@@ -117,7 +117,7 @@ rand(hmm::PeriodicHMM, n2t::AbstractArray{Int}, z::AbstractVector{<:Integer}, us
 
 function yesterday(probj::Tuple, yj)
     probj = probj[1]
-    probj[day2(yj, 1)]/(probj[day2(yj, 1)]+probj[day2(yj, 0)]) #1-> dd, 2-> wd, 3 -> dw, 4 -> ww
+    probj[day2(yj, 1)] / (probj[day2(yj, 1)] + probj[day2(yj, 0)]) #1-> dd, 2-> wd, 3 -> dw, 4 -> ww
 end
 day3(b, y, t) = passmissing(Int)(round(1 + 1.4b + 2.4y + 3.4t))
 day2(y, t) = (1 + y + 2t)
@@ -128,7 +128,7 @@ function likelihoods!(L::AbstractMatrix, hmm::PeriodicHMM{Univariate}, observati
     @argcheck size(LL) == (N, K)
     @inbounds for i in OneTo(K), n in OneTo(T)
         t = n2t[n] # periodic t
-        L[n, i] = pdf(hmm.B[i,t], observations[n])
+        L[n, i] = pdf(hmm.B[i, t], observations[n])
     end
 end
 
@@ -137,7 +137,7 @@ function likelihoods!(L::AbstractMatrix, hmm::PeriodicHMM{Multivariate}, observa
     @argcheck size(LL) == (N, K)
     @inbounds for i in OneTo(K), n in OneTo(T)
         t = n2t[n] # periodic t
-        L[n, i] = pdf(hmm.B[i,t], view(observations, n, :))
+        L[n, i] = pdf(hmm.B[i, t], view(observations, n, :))
     end
 end
 
@@ -146,7 +146,7 @@ function loglikelihoods!(LL::AbstractMatrix, hmm::PeriodicHMM{Univariate}, obser
     @argcheck size(LL) == (N, K)
     @inbounds for i in OneTo(K), n in OneTo(N)
         t = n2t[n] # periodic t
-        LL[n,i] = logpdf(hmm.B[i,t], observations[n])
+        LL[n, i] = logpdf(hmm.B[i, t], observations[n])
     end
 end
 
@@ -155,7 +155,7 @@ function loglikelihoods!(LL::AbstractMatrix, hmm::PeriodicHMM{Multivariate}, obs
     @argcheck size(LL) == (N, K)
     @inbounds for i in OneTo(K), n in OneTo(N)
         t = n2t[n] # periodic t
-        LL[n,i] = logpdf(hmm.B[i,t], view(observations, n, :))
+        LL[n, i] = logpdf(hmm.B[i, t], view(observations, n, :))
     end
 end
 
@@ -179,7 +179,7 @@ function update_A!(
               size(ξ, 3)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     @inbounds for n in OneTo(N - 1)
         t = n2t[n] # periodic t
         m = vec_maximum(view(LL, n + 1, :))
@@ -197,23 +197,23 @@ function update_A!(
 
     fill!(A, 0.0)
     ## For periodicHMM only the n observation corresponding to A(t) are used to update A(t)
-    n_in_t = [findall(n2t .== t) for t in 1:T] # could probably be speeded up
+    n_in_t = [findall(n2t .== t) for t = 1:T] # could probably be speeded up
 
     @inbounds for t in OneTo(T)
-            for i in OneTo(K)
-                c = 0.0
+        for i in OneTo(K)
+            c = 0.0
 
-                for j in OneTo(K)
-                    for n in setdiff(n_in_t[t],N)
-                        A[i, j, t] += ξ[n, i, j]
-                    end
-                    c += A[i, j, t]
+            for j in OneTo(K)
+                for n in setdiff(n_in_t[t], N)
+                    A[i, j, t] += ξ[n, i, j]
                 end
-
-                for j in OneTo(K)
-                    A[i, j, t] /= c
-                end
+                c += A[i, j, t]
             end
+
+            for j in OneTo(K)
+                A[i, j, t] /= c
+            end
+        end
     end
 end
 
@@ -221,19 +221,19 @@ end
 function update_B!(B::AbstractMatrix, γ::AbstractMatrix, observations, estimator, n2t::AbstractArray{Int})
     @argcheck size(γ, 1) == size(observations, 1)
     @argcheck size(γ, 2) == size(B, 1)
-	@argcheck size(observations, 1) == size(n2t, 1)
+    @argcheck size(observations, 1) == size(n2t, 1)
     N = size(γ, 1)
     K = size(B, 1)
     T = size(B, 2)
     ## For periodicHMM only the n observation corresponding to A(t) are used to update A(t)
-    C =  ncategories(B[1].v[1])
-    n_in_t = [findall(n2t .== t) for t in 1:T] # could probably be speeded up. For exemple computed outside the function only once
-    if typeof(B[1]) in [Product{Discrete, Categorical{Float64, Vector{Float64}}, Vector{Categorical{Float64, Vector{Float64}}}} , Categorical{Float64, Vector{Float64}}]
+    C = ncategories(B[1].v[1])
+    n_in_t = [findall(n2t .== t) for t = 1:T] # could probably be speeded up. For exemple computed outside the function only once
+    if typeof(B[1]) in [Product{Discrete,Categorical{Float64,Vector{Float64}},Vector{Categorical{Float64,Vector{Float64}}}}, Categorical{Float64,Vector{Float64}}]
         @inbounds for t in OneTo(T)
             n_t = n_in_t[t]
             for i in OneTo(K)
                 if sum(γ[n_t, i]) > 0
-                    B[i,t] = fit_mle((B[i,t]), C, permutedims(observations[n_t,:]), γ[n_t, i])
+                    B[i, t] = fit_mle((B[i, t]), C, permutedims(observations[n_t, :]), γ[n_t, i])
                 end
             end
         end
@@ -242,7 +242,7 @@ function update_B!(B::AbstractMatrix, γ::AbstractMatrix, observations, estimato
             n_t = n_in_t[t]
             for i in OneTo(K)
                 if sum(γ[n_t, i]) > 0
-                    B[i,t] = estimator((B[i,t]), permutedims(observations[n_t,:]), γ[n_t, i])
+                    B[i, t] = estimator((B[i, t]), permutedims(observations[n_t, :]), γ[n_t, i])
                 end
             end
         end
@@ -270,7 +270,7 @@ function fit_mle!(
     tol = 1e-3,
     robust = false,
     estimator = fit_mle
-    )
+)
     @argcheck display in [:none, :iter, :final]
     @argcheck maxiter >= 0
 
@@ -313,7 +313,7 @@ function fit_mle!(
 
         loglikelihoods!(LL, hmm, observations, n2t)
         robust && replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
-    
+
 
         forwardlog!(α, c, hmm.a, hmm.A, LL, n2t)
         backwardlog!(β, c, hmm.a, hmm.A, LL, n2t)
@@ -357,7 +357,7 @@ function forwardlog!(
     @argcheck size(α, 2) == size(LL, 2) == size(a, 1) == size(A, 1) == size(A, 2)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
 
     fill!(α, 0.0)
     fill!(c, 0.0)
@@ -381,7 +381,7 @@ function forwardlog!(
         #
         for j in OneTo(K)
             for i in OneTo(K)
-                α[n,j] += α[n-1, i] * A[i,j,tm1]
+                α[n, j] += α[n-1, i] * A[i, j, tm1]
             end
             α[n, j] *= exp(LL[n, j] - m)
             c[n] += α[n, j]
@@ -408,7 +408,7 @@ function backwardlog!(
     @argcheck size(β, 2) == size(LL, 2) == size(a, 1) == size(A, 1) == size(A, 2)
 
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     L = zeros(K)
     (T == 0) && return
 
@@ -429,7 +429,7 @@ function backwardlog!(
 
         for j in OneTo(K)
             for i in OneTo(K)
-                β[n,j] += β[n+1, i] * A[j,i,t] * L[i]
+                β[n, j] += β[n+1, i] * A[j, i, t] * L[i]
             end
             c[n+1] += β[n, j]
         end
@@ -535,7 +535,7 @@ function viterbi!(
     n2t::AbstractArray{Int}
 )
     N, K = size(L)
-    T = size(A,3)
+    T = size(A, 3)
     (T == 0) && return
 
     fill!(T1, 0.0)
@@ -598,7 +598,7 @@ function viterbilog!(
     n2t::AbstractArray{Int}
 )
     N, K = size(LL)
-    T = size(A,3)
+    T = size(A, 3)
     (T == 0) && return
 
     fill!(T1, 0.0)

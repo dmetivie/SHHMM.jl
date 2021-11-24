@@ -150,12 +150,12 @@ function dayx(lag_obs)
     bin2digit.(t)
 end
 
-function conditional_to(observations::AbstractArray, memory::Int; 
+function conditional_to(observations::AbstractArray, memory::Int;
     past = [0 1 0 1 1 0 1 0 0 0
-    1 1 0 1 1 1 1 1 1 1
-    1 1 0 1 1 1 0 1 1 1
-    1 1 0 1 1 0 0 0 1 0
-    1 1 0 1 1 0 0 1 0 1]
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1]
 )
     if memory == 0
         return ones(Int, size(observations))
@@ -169,12 +169,12 @@ function conditional_to(observations::AbstractArray, memory::Int;
     end
 end
 
-function conditional_to(observations::AbstractArray, memory::AbstractVector; 
+function conditional_to(observations::AbstractArray, memory::AbstractVector;
     past = [0 1 0 1 1 0 1 0 0 0
-    1 1 0 1 1 1 1 1 1 1
-    1 1 0 1 1 1 0 1 1 1
-    1 1 0 1 1 0 0 0 1 0
-    1 1 0 1 1 0 0 1 0 1]
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1]
 )
     D = size(observations, 2)
     lag_cat = zeros(Int, size(observations))
