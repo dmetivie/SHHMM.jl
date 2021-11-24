@@ -314,6 +314,28 @@ function fit_mle!(
     history
 end
 
+## For AbstractHMM + n2t + lag_cat
+
+function loglikelihoods(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false,
+    past = [0 1 0 1 1 0 1 0 0 0
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1])
+    (logl !== nothing) && deprecate_kwargs("logl")
+    N, K, size_memory = size(observations, 1), size(hmm, 1), size(hmm, 4)
+    LL = Matrix{Float64}(undef, N, K)
+
+    memory = Int(log(size_memory) / log(2))
+    lag_cat = conditional_to(observations, memory; past = past)
+
+    loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
+    if robust
+        replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
+    end
+    LL
+end
+
 function forward(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false,
     past = [0 1 0 1 1 0 1 0 0 0
         1 1 0 1 1 1 1 1 1 1
