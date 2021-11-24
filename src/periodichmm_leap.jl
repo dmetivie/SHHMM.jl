@@ -123,41 +123,6 @@ day3(b, y, t) = passmissing(Int)(round(1 + 1.4b + 2.4y + 3.4t))
 day2(y, t) = (1 + y + 2t)
 
 ###
-function likelihoods!(L::AbstractMatrix, hmm::PeriodicHMM{Univariate}, observations, n2t::AbstractArray{Int})
-    N, K, T = size(observations, 1), size(hmm, 1), size(hmm, 3)
-    @argcheck size(LL) == (N, K)
-    @inbounds for i in OneTo(K), n in OneTo(T)
-        t = n2t[n] # periodic t
-        L[n, i] = pdf(hmm.B[i, t], observations[n])
-    end
-end
-
-function likelihoods!(L::AbstractMatrix, hmm::PeriodicHMM{Multivariate}, observations, n2t::AbstractArray{Int})
-    N, K, T = size(observations, 1), size(hmm, 1), size(hmm, 3)
-    @argcheck size(LL) == (N, K)
-    @inbounds for i in OneTo(K), n in OneTo(T)
-        t = n2t[n] # periodic t
-        L[n, i] = pdf(hmm.B[i, t], view(observations, n, :))
-    end
-end
-
-function loglikelihoods!(LL::AbstractMatrix, hmm::PeriodicHMM{Univariate}, observations, n2t::AbstractArray{Int})
-    N, K, T = size(observations, 1), size(hmm, 1), size(hmm, 3)
-    @argcheck size(LL) == (N, K)
-    @inbounds for i in OneTo(K), n in OneTo(N)
-        t = n2t[n] # periodic t
-        LL[n, i] = logpdf(hmm.B[i, t], observations[n])
-    end
-end
-
-function loglikelihoods!(LL::AbstractMatrix, hmm::PeriodicHMM{Multivariate}, observations, n2t::AbstractArray{Int})
-    N, K, T = size(observations, 1), size(hmm, 1), size(hmm, 3)
-    @argcheck size(LL) == (N, K)
-    @inbounds for i in OneTo(K), n in OneTo(N)
-        t = n2t[n] # periodic t
-        LL[n, i] = logpdf(hmm.B[i, t], view(observations, n, :))
-    end
-end
 
 ####
 
@@ -506,13 +471,13 @@ function posteriors(hmm::AbstractHMM, observations, n2t::AbstractArray{Int}; log
     posteriors(hmm.a, hmm.A, LL, n2t)
 end
 
+## Viterbi
 function viterbi(hmm::AbstractHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false)
     (logl !== nothing) && deprecate_kwargs("logl")
     LL = loglikelihoods(hmm, observations, n2t; robust = robust)
     viterbi(hmm.a, hmm.A, LL, n2t)
 end
 
-## Viterbi
 function viterbi(a::AbstractVector, A::AbstractArray, LL::AbstractMatrix, n2t::AbstractArray{Int}; logl = nothing)
     ## < v1.1 compatibility
     (logl !== nothing) && deprecate_kwargs("logl")

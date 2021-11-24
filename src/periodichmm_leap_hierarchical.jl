@@ -314,19 +314,46 @@ function fit_mle!(
     history
 end
 
-## For AbstractHMM + n2t + lag_cat
-
-function loglikelihoods(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false)
+function forward(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false,
+    past = [0 1 0 1 1 0 1 0 0 0
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1])
     (logl !== nothing) && deprecate_kwargs("logl")
-    N, K, size_memory = size(observations, 1), size(hmm, 1), size(hmm, 4)
-    LL = Matrix{Float64}(undef, N, K)
+    LL = loglikelihoods(hmm, observations, n2t; robust = robust, past = past)
+    forward(hmm.a, hmm.A, LL, n2t)
+end
 
-    memory = Int(log(size_memory) / log(2))
-    lag_cat = conditional_to(observations, memory)
+function backward(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false,
+    past = [0 1 0 1 1 0 1 0 0 0
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1])
+    (logl !== nothing) && deprecate_kwargs("logl")
+    LL = loglikelihoods(hmm, observations; robust = robust, past = past)
+    backward(hmm.a, hmm.A, LL, n2t)
+end
 
-    loglikelihoods!(LL, hmm, observations, n2t, lag_cat)
-    if robust
-        replace!(LL, -Inf => nextfloat(-Inf), Inf => log(prevfloat(Inf)))
-    end
-    LL
+function posteriors(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false,
+    past = [0 1 0 1 1 0 1 0 0 0
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1])
+    (logl !== nothing) && deprecate_kwargs("logl")
+    LL = loglikelihoods(hmm, observations, n2t; robust = robust, past = past)
+    posteriors(hmm.a, hmm.A, LL, n2t)
+end
+
+function viterbi(hmm::HierarchicalPeriodicHMM, observations, n2t::AbstractArray{Int}; logl = nothing, robust = false,
+    past = [0 1 0 1 1 0 1 0 0 0
+        1 1 0 1 1 1 1 1 1 1
+        1 1 0 1 1 1 0 1 1 1
+        1 1 0 1 1 0 0 0 1 0
+        1 1 0 1 1 0 0 1 0 1])
+    (logl !== nothing) && deprecate_kwargs("logl")
+    LL = loglikelihoods(hmm, observations, n2t; robust = robust, past = past)
+    viterbi(hmm.a, hmm.A, LL, n2t)
 end
